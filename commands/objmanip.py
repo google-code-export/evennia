@@ -1,9 +1,6 @@
 import ansi
 import session_mgr
 import functions_db
-# For aliases
-from apps.objects.models import Attribute
-
 
 def cmd_teleport(cdat):
    """
@@ -107,7 +104,7 @@ def cmd_alias(cdat):
       session.msg("Alias whom?")
       return
   
-   duplicates = Attribute.objects.filter(attr_name="ALIAS").filter(attr_value=eq_args[1])
+   duplicates = functions_db.alias_search(pobject, eq_args[1])
    
    if duplicates:
       session.msg("Alias '%s' already exists." % (eq_args[1],))
@@ -115,7 +112,9 @@ def cmd_alias(cdat):
    else:
       if pobject.controls_other(target):
          target.set_attribute('ALIAS', eq_args[1])
-         session.msg("Alias %s (%s) added." % (target.get_name(), eq_args[1]))
+         session.msg("Alias '%s' set for %s." % (eq_args[1], target.get_name()))
+      else:
+         session.msg("You do not have access to set an alias for %s." % (target.get_name(),))
 
 def cmd_wipe(cdat):
    """

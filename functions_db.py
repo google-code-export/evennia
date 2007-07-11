@@ -22,13 +22,7 @@ def get_connected_players():
    """
    return Object.objects.filter(nosave_flags__contains="CONNECTED")
 
-def num_connected_players():
-   """
-   Returns the number of connected players.
-   """
-   return get_connected_players().count()
-
-def num_recently_created_players(days=7):
+def get_recently_created_players(days=7):
    """
    Returns a QuerySet containing the player User accounts that have been
    connected within the last <days> days.
@@ -36,9 +30,9 @@ def num_recently_created_players(days=7):
    end_date = datetime.now()
    tdelta = timedelta(days)
    start_date = end_date - tdelta
-   return User.objects.filter(date_joined__range=(start_date, end_date)).count()
+   return User.objects.filter(date_joined__range=(start_date, end_date))
 
-def num_recently_connected_players(days=7):
+def get_recently_connected_players(days=7):
    """
    Returns a QuerySet containing the player User accounts that have been
    connected within the last <days> days.
@@ -46,7 +40,7 @@ def num_recently_connected_players(days=7):
    end_date = datetime.now()
    tdelta = timedelta(days)
    start_date = end_date - tdelta
-   return User.objects.filter(last_login__range=(start_date, end_date)).count()
+   return User.objects.filter(last_login__range=(start_date, end_date)).order_by('-last_login')
 
 def is_unsavable_flag(flagname):
    """
@@ -123,7 +117,9 @@ def list_search_object_namestr(searchlist, ostring, dbref_only=False, limit_type
 
 def player_search(searcher, ostring):
    """
-   Combines an aias and local/global search for a player's name.
+   Combines an alias and local/global search for a player's name. If there are
+   no alias matches, do a global search limiting by type PLAYER.
+   
    searcher: (Object) The object doing the searching.
    ostring:  (string) The alias string to search for.
    """
@@ -171,8 +167,7 @@ def object_totals():
 def alias_search(searcher, ostring):
    """
    Search players by alias. Returns a list of objects whose "ALIAS" attribute
-   exactly (not case-sensitive) matches ostring. If there isn't an alias match,
-   perform a local_and_global_search().
+   exactly (not case-sensitive) matches ostring.
    
    searcher: (Object) The object doing the searching.
    ostring:  (string) The alias string to search for.
