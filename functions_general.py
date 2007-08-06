@@ -1,7 +1,7 @@
+import textwrap
 from twisted.python import log
 
 import session_mgr
-
 """
 General commonly used functions.
 """
@@ -47,6 +47,7 @@ def log_errmsg(errormsg):
    errormsg: (string) The message to be logged.
    """
    log.err('ERROR: %s' % (errormsg,))
+   #functions_comsys.send_cmessage("Errors", "[Errors] "+ errormsg)
 
 def log_infomsg(infomsg):
    """
@@ -55,6 +56,7 @@ def log_infomsg(infomsg):
    debugmsg: (string) The message to be logged.
    """
    log.msg('%s' % (infomsg,))
+   #functions_comsys.send_cmessage("Info", "[Info] "+ infomsg)
    
 def time_format(seconds, style=0):
    """
@@ -130,17 +132,9 @@ def announce_all(message, with_ann_prefix=True):
 
 def word_wrap(text, width=78):
    """
-   A word-wrap function that preserves existing line breaks
-   and most spaces in the text. Expects that existing line
-   breaks are posix newlines (\n).
-    
-   Function originally by Mike Brown
+   Wrap text to a certain number of characters.
+
+   text: (str) The text to wrap.
+   width: (int) The number of characters to wrap to.
    """
-   return reduce(lambda line, word, width=width: '%s%s%s' %
-                 (line,
-                  ' \n'[(len(line)-line.rfind('\n')-1
-                        + len(word.split('\n',1)[0]
-                             ) >= width)],
-                  word),
-                 text.split(' ')
-                )
+   return '\r\n'.join(textwrap.wrap(text, width))
