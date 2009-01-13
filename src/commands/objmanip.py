@@ -6,6 +6,7 @@ from src.objects.models import Object, Attribute
 import src.flags
 from src import ansi
 from src import session_mgr
+from src.util import functions_user
 
 def cmd_teleport(command):
     """
@@ -105,6 +106,10 @@ def cmd_alias(command):
     # Use standard_plr_objsearch to handle duplicate/nonexistant results.
     if not target:
         session.msg("I can't find that player.")
+        return
+
+    if target == pobject and functions_user.name_exists(target_string):
+        session.msg("Sorry, that name already exists for a player!")
         return
   
     old_alias = target.get_attribute_value('ALIAS')
@@ -493,7 +498,11 @@ def cmd_name(command):
         # Use standard_plr_objsearch to handle duplicate/nonexistant results.
         if not target_obj:
             return
-        
+
+        if target_obj == pobject and functions_user.name_exists(new_name):
+            session.msg("Someone already has that name!")
+            return
+
         ansi_name = ansi.parse_ansi(new_name, strip_formatting=True)
         session.msg("You have renamed %s to %s." % (target_obj, ansi_name))
         target_obj.set_name(new_name)

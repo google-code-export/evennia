@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 from src.objects.models import Attribute, Object
 from src import defines_global
 from src.util import functions_general
+from src.util import functions_user
 
 def cmd_connect(command):
     """
@@ -77,17 +78,10 @@ def cmd_create(command):
     email = lastarg_split[0]
     password = lastarg_split[1]
 
-    # Search for a user object with the specified username.
-    account = User.objects.filter(username=uname)
     # Match an email address to an account.
     email_matches = Object.objects.get_user_from_email(email)
-    # Look for any objects with an 'Alias' attribute that matches
-    # the requested username
-    alias_matches = Object.objects.filter(attribute__attr_name__exact="ALIAS", 
-            attribute__attr_value__iexact=uname).filter(
-                    type=defines_global.OTYPE_PLAYER)
     
-    if not account.count() == 0 or not alias_matches.count() == 0:
+    if functions_user.name_exists(uname):
         session.msg("There is already a player with that name!")
     elif not email_matches.count() == 0:
         session.msg("There is already a player with that email address!")
