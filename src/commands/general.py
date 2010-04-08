@@ -273,11 +273,11 @@ def cmd_look(command):
     else:
         target_obj = source_object.get_location()
     
-    # SCRIPT: Get the item's appearance from the scriptlink.
-    source_object.emit_to(target_obj.scriptlink.return_appearance(pobject=source_object))
+    # SCRIPT: Get the item's appearance
+    source_object.emit_to(target_obj.return_appearance(pobject=source_object))
             
     # SCRIPT: Call the object's script's at_desc() method.
-    target_obj.scriptlink.at_desc(pobject=source_object)
+    target_obj.at_desc(pobject=source_object)
 GLOBAL_CMD_TABLE.add_command("look", cmd_look)
             
 def cmd_get(command):
@@ -316,7 +316,7 @@ def cmd_get(command):
         source_object.emit_to("You can't get that.")
         return
 
-    if not target_obj.scriptlink.default_lock(source_object):
+    if not target_obj.default_lock(source_object):
         lock_msg = target_obj.get_attribute_value("lock_msg")
         if lock_msg:
             source_object.emit_to(lock_msg)
@@ -332,7 +332,7 @@ def cmd_get(command):
                                      exclude=source_object)
     
     # SCRIPT: Call the object's script's a_get() method.
-    target_obj.scriptlink.at_get(source_object)
+    target_obj.at_get(source_object)
 GLOBAL_CMD_TABLE.add_command("get", cmd_get)    
             
 def cmd_drop(command):
@@ -368,7 +368,7 @@ def cmd_drop(command):
                                              exclude=source_object)
 
     # SCRIPT: Call the object script's a_drop() method.
-    target_obj.scriptlink.at_drop(source_object)
+    target_obj.at_drop(source_object)
 GLOBAL_CMD_TABLE.add_command("drop", cmd_drop),
                 
 def cmd_quit(command):

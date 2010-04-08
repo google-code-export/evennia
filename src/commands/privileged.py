@@ -8,13 +8,11 @@ from django.conf import settings
 from src.objects.models import Object
 from src import session_mgr
 from src import comsys
-from src.scripthandler import rebuild_cache
 from src.cmdtable import GLOBAL_CMD_TABLE
 from src.helpsys.models import HelpEntry
 from src.helpsys import helpsystem
 from src.config.models import CommandAlias
 from src.config import edit_aliases
-from src import cache 
 from src import scheduler
 
 
@@ -32,9 +30,6 @@ def cmd_reload(command):
       scripts, parents - the script parent modules      
       all              - reload all of the above 
       
-      cache            - flush the volatile cache (warning, this
-                         might cause unexpected results if your
-                         script parents use the cache a lot)
       reset            - flush cache then reload all 
 
     Reloads all the identified subsystems. Flushing the cache is
@@ -45,23 +40,18 @@ def cmd_reload(command):
     if not switches or switches[0] not in ['all','aliases','alias',
                                            'commands','command',
                                            'scripts','parents',
-                                           'cache','reset']:
+                                           'reset']:
         source_object.emit_to("Usage: @reload/<aliases|scripts|commands|all>")
         return
     switch = switches[0]
     sname = source_object.get_name(show_dbref=False)
 
-    if switch in ["reset", "cache"]:
-        # Clear the volatile cache 
-        cache.flush()        
-        comsys.cemit_mudinfo("%s flushed the non-persistent cache." % sname)
     if switch in ["reset","all","aliases","alias"]:
         # Reload Aliases
         command.session.server.reload_aliases(source_object=source_object)
         comsys.cemit_mudinfo("%s reloaded Aliases." % sname)    
     if switch in ["reset","all","scripts","parents"]:
         # Reload Script parents
-        rebuild_cache()
         comsys.cemit_mudinfo("%s reloaded Script parents." % sname)        
     if switch in ["reset","all","commands","command"]:
         # Reload command objects.

@@ -18,7 +18,6 @@ import session_mgr
 from src import scheduler
 from src import defines_global
 from src.objects.models import Object
-from src.cache import cache
 from src import logger
 from src import gametime
 
@@ -191,6 +190,3 @@ class IEvt_Sync_PCache(IntervalEvent):
         # update the event database to pcache
         ecache = [event for event in scheduler.SCHEDULE
                   if event.persistent]            
-        cache.set_pcache("_persistent_event_cache", ecache)            
-        # save pcache to disk.
-        cache.save_pcache()

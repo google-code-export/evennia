@@ -191,7 +191,7 @@ class FuncKey(Key):
             return self.invert_result
 
         # build tuples of functions and their return values
-        ftuple_list = [(getattr(lock_obj.scriptlink, tup[0], None),
+        ftuple_list = [(getattr(lock_obj, tup[0], None),
                         tup[1]) for tup in self.criteria
                        if len(tup) > 1]
         

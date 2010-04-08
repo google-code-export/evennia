@@ -527,7 +527,7 @@ def cmd_create(command):
                                               source_object,
                                               script_parent=script_parent)    
     if script_parent:
-        if new_object.get_script_parent() == script_parent:        
+        if new_object == script_parent:        
             source_object.emit_to("You create %s as a child of %s." %
                                   (new_object, script_parent))
         else:                
@@ -689,7 +689,7 @@ def cmd_open(command):
                                                   script_parent=exit_parent)                
         ptext = ""
         if exit_parent:
-            if new_object.get_script_parent() == exit_parent:        
+            if new_object == exit_parent:        
                 ptext += " of type %s" % exit_parent
             else:
                 ptext += " of default type (parent '%s' failed!)" % exit_parent
@@ -716,7 +716,7 @@ def cmd_open(command):
                                                   script_parent=exit_parent)
         ptext = ""
         if exit_parent:
-            if new_object.get_script_parent() == exit_parent:        
+            if new_object == exit_parent:        
                 ptext += " of type %s" % exit_parent
             else:
                 ptext += " of default type (parent '%s' failed!)" % exit_parent
@@ -731,7 +731,7 @@ def cmd_open(command):
                                                       script_parent=return_exit_parent)
             ptext = ""
             if return_exit_parent:                
-                if new_object.get_script_parent() == return_exit_parent:        
+                if new_object == return_exit_parent:        
                     ptext += " of type %s" % return_exit_parent
                 else:
                     ptext += " of default type (parent '%s' failed!)" % return_exit_parent
@@ -1313,7 +1313,7 @@ def cmd_destroy(command):
             continue
         
         # Run any scripted things that happen before destruction.
-        target_obj.scriptlink.at_object_destruction(pobject=source_object)
+        target_obj.at_object_destruction(pobject=source_object)
         
         #destroy the object (sets it to GOING)
         target_obj.destroy()

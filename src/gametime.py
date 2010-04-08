@@ -7,7 +7,6 @@ in-mud time and real-worl time.
 
 from django.conf import settings
 import time as time_module
-from src.cache import cache
 
 # Speed-up factor of the in-game time compared
 # to real time. 
@@ -53,11 +52,15 @@ def time(currtime=None):
                time to a new real-world timestamp
     """
     # saved real world timestamp (seconds since 1970 or so)
+    return 0
     time0 = cache.get_pcache("_game_time0")
     # saved game time at real-world time time0
     time1 = cache.get_pcache("_game_time")  
     if currtime:
-        return time1 + (currtime - time0)
+        try:
+           return time1 + (currtime - time0)
+        except:
+           return 0
     else:
         return time1 + (time_module.time() - time0)
 
@@ -128,6 +131,8 @@ def time_last_sync():
     time0 = cache.get_pcache("_game_time0") 
     # The correction factor is the time
     # since last backup + downtime. 
-    return time_module.time() - time0
-
-
+    # tmp catch due to bad init on first server crash
+    try:
+       return time_module.time() - time0
+    except:
+       return 0

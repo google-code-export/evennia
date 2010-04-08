@@ -16,49 +16,31 @@ from src.helpsys import helpsystem
 from src import session_mgr
 from src import scheduler
 from src import events
-from src.cache import cache
 from src import gametime
+from src.objects.models import Player
 # Main module methods
-
-def get_god_user():
-    """
-    Returns the initially created 'god' User object.
-    """
-    return User.objects.get(id=1)
-
-def get_god_obj():
-    """
-    Returns the initially created 'god' user's PLAYER object.
-    """
-    return Object.objects.get(id=1)
 
 def create_objects():
     """
     Creates the #1 player and Limbo room.
     """
-    # Set the initial User's account object's username on the #1 object.
-    god_user = get_god_user()
-    god_user.is_superuser = True
-    god_user.is_staff = True    
-    # Create the matching PLAYER object in the object DB.
-    god_user_obj = Object(id=1, type=defines_global.OTYPE_PLAYER)
-    god_user_obj.set_name(god_user.username)
-    god_user_obj.set_attribute('desc', 'You are Player #1.')
-    god_user_obj.scriptlink.at_player_creation()
-    
-    god_user_obj.save()
-    
     # Limbo is the initial starting room.
-    limbo_obj = Object(id=2, type=defines_global.OTYPE_ROOM)
-    limbo_obj.set_owner(god_user_obj)
-    limbo_obj.set_name('%ch%ccLimbo%cn')
+    limbo_obj = Object.objects.create(name = '%ch%ccLimbo%cn')
     limbo_obj.set_attribute('desc',"Welcome to your new %chEvennia%cn-based game. From here you are ready to begin development. If you should need help or would like to participate in community discussions, visit http://evennia.com.")
-    limbo_obj.scriptlink.at_object_creation()
     limbo_obj.save()
-
-    # Now that Limbo exists, set the user up in Limbo.
+    ConfigValue(conf_key="default_home", conf_value=limbo_obj.id).save()
+    ConfigValue(conf_key="player_dbnum_start", conf_value=limbo_obj.id).save()
+    
+    # ensure there is one and only one user
+    god_user, _ = User.objects.get_or_create(is_superuser=True, is_staff=True)
+    # Create the matching PLAYER object in the object DB.
+    god_user_obj = Player.objects.create(name=god_user.username,user=god_user)
+    god_user_obj.set_attribute('desc', 'You are the first player.')
     god_user_obj.location = limbo_obj
     god_user_obj.set_home(limbo_obj)
+    god_user_obj.save()
+    limbo_obj.set_owner(god_user_obj)
+    limbo_obj.save()
     
 def create_groups():
     """
@@ -82,7 +64,7 @@ def create_channels():
     """
     Creates some sensible default channels.
     """
-    god_user_obj = get_god_obj()
+    god_user_obj = Object.objects.get(type=defines_global.OTYPE_PLAYER)
     chan_pub = comsys.create_channel("Public", god_user_obj, 
                                      description="Public Discussion")
     chan_pub.is_joined_by_default = True
@@ -100,11 +82,9 @@ def create_config_values():
     """
     Creates the initial config values.
     """
-    ConfigValue(conf_key="default_home", conf_value="2").save()
     ConfigValue(conf_key="idle_timeout", conf_value="3600").save()
     ConfigValue(conf_key="money_name_singular", conf_value="Credit").save()
     ConfigValue(conf_key="money_name_plural", conf_value="Credits").save()
-    ConfigValue(conf_key="player_dbnum_start", conf_value="2").save()
     ConfigValue(conf_key="site_name", conf_value="Evennia Test Site").save()
     # We don't want to do initial setup tasks every startup, only the first.
     ConfigValue(conf_key="game_firstrun", conf_value="0").save()
@@ -143,14 +123,6 @@ def categorize_initial_helpdb():
     print " Moving initial imported help db to help category '%s'." % default_category
     helpsystem.edithelp.homogenize_database(default_category)
 
-def create_pcache():
-    """
-    Create the global persistent cache object.    
-    """    
-    from src.cache import cache
-    # create the main persistent cache
-    cache.init_pcache()
-
 def create_system_events():
     """
     Set up the default system events of the server
@@ -159,12 +131,6 @@ def create_system_events():
     print " Defining system events ..."
     scheduler.add_event(events.IEvt_Check_Sessions())
     scheduler.add_event(events.IEvt_Destroy_Objects())
-    scheduler.add_event(events.IEvt_Sync_PCache())    
-
-    # Make sure that these events are saved to pcache right away. 
-    ecache = [event for event in scheduler.SCHEDULE if event.persistent]
-    cache.set_pcache("_persistent_event_cache", ecache)
-    cache.save_pcache()
 
 def start_game_time():
     """

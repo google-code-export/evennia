@@ -8,8 +8,6 @@ ADDING AN EVENT:
   imported, or that add_event() is called by a command or some kind of action.
 * Profit.
 """
-from src.cache import cache
-CACHE_NAME = "_persistent_event_cache"
 
 # dict of IntervalEvent sub-classed objects, keyed by their
 # process id:s.
@@ -58,8 +56,8 @@ def add_event(event):
         # in situations (such as after a crash) where an object exists,
         # but the event tied to it does not.
         ecache = [event for event in SCHEDULE if event.persistent]            
-        cache.set_pcache("_persistent_event_cache", ecache)
-        cache.save_pcache()
+        #cache.set_pcache("_persistent_event_cache", ecache)
+        #cache.save_pcache()
         
     return event.pid 
 

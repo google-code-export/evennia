@@ -58,10 +58,8 @@ def disconnect_duplicate_session(session):
     connection recovery to help with record-keeping.
     """
     session_list = get_session_list()
-    session_pobj = session.get_pobject()
     for other_session in session_list:
-        other_pobject = other_session.get_pobject()
-        if session_pobj == other_pobject and other_session != session:
+        if session.puppet == other_session.puppet and other_session != session:
             other_session.msg("Your account has been logged in from elsewhere, disconnecting.")
             other_session.disconnectClient()
             return True
@@ -102,7 +100,7 @@ def sessions_from_object(targ_object):
     
     targobject: (Object) The object to match.
     """
-    return [prospect for prospect in session_list if prospect.get_pobject() == targ_object]
+    return [prospect for prospect in session_list if prospect.puppet == targ_object]
         
 def announce_all(message, with_ann_prefix=True):
     """

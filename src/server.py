@@ -15,7 +15,6 @@ from src import alias_mgr
 from src import cmdtable
 from src import initial_setup
 from src.util import functions_general
-from src.cache import cache
 from src import scheduler
 from src import gametime
 
@@ -57,10 +56,8 @@ class EvenniaService(service.Service):
         # Cache the aliases from the database for quick access.
         alias_mgr.load_cmd_aliases()
         
-        # Load persistent cache from database into memory
-        cache.load_pcache()
-        
-        if not firstrun:
+        # disabled temporarily until cache is replaced
+        if False and not firstrun:
             # Find out how much offset the timer is (due to being
             # offline).
             downtime_sync = gametime.time_last_sync()
@@ -128,7 +125,6 @@ class EvenniaService(service.Service):
         Gracefully disconnect everyone and kill the reactor.
         """
         gametime.time_save()
-        cache.save_pcache()
         logger.log_infomsg("Persistent cache and time saved prior to shutdown.")
         session_mgr.announce_all(message)
         session_mgr.disconnect_all_sessions()
