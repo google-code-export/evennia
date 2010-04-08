@@ -521,11 +521,7 @@ def cmd_create(command):
         script_parent = eq_args[1].strip()
             
     # Create and set the object up.
-    new_object = Object.objects.create_object(target_name,
-                                              defines_global.OTYPE_THING,
-                                              source_object,
-                                              source_object,
-                                              script_parent=script_parent)    
+    new_object = Object(name=target_name, location=source_object)
     if script_parent:
         if new_object == script_parent:        
             source_object.emit_to("You create %s as a child of %s." %

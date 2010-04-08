@@ -259,8 +259,6 @@ class Primitive(DEFAULT_MODEL):
     def matches(self, txt):
         if txt.lower() == self.name.lower():
             return True
-        if txt.lower() in map(lambda word: word.lower(), word_list(self.keywords)):
-            return True
 
 class Object(Primitive):
     """
@@ -342,25 +340,21 @@ class Object(Primitive):
         # This is the object that gets the duplicate/no match emits.
         if not emit_to_obj:
             emit_to_obj = self
-            
+        search_sets = [self.location.contents]
+        if search_contents:
+            search_sets.append(self.contents)    
         if search_aliases:
-            # If an alias match is found, get out of here and skip the rest.
-            alias_results = Object.objects.player_alias_search(self, ostring)
-            if alias_results:
-                return alias_results[0]
-            
-        results = Object.objects.local_and_global_search(self, ostring, 
-                                search_contents=search_contents, 
-                                search_location=search_location, 
-                                dbref_only=dbref_only, 
-                                limit_types=limit_types,
-                                attribute_name=attribute_name)
+           #TODO implement player aliases again
+           pass 
+        results = []
+        for search_set in search_sets:
+            results += filter(lambda x: x.matches(ostring), search_set)
 
         if len(results) > 1:
             string = "More than one match for '%s' (please narrow target):" % ostring            
             for num, result in enumerate(results):
                 invtext = ""
-                if result.get_location() == self:
+                if result.location == self:
                     invtext = " (carried)"                    
                 string += "\n %i-%s%s" % (num+1,
                                      result.name,
@@ -373,47 +367,6 @@ class Object(Primitive):
         else:
             return results[0]
         
-    def search_for_object_global(self, ostring, exact_match=True,
-                                 limit_types=[],
-                                 emit_to_obj=None, dbref_limits=()):
-        """
-        Search for ostring in all objects, globally. Handle multiple-matches
-        and no matches gracefully. This is mainly intended to be used by
-        admin and build-type commands. It also accepts #dbref
-        search queries. 
-        """
-        if not emit_to_obj:
-            emit_to_obj = self
-
-        results = Object.objects.global_object_name_search(ostring,
-                                                           exact_match=exact_match,
-                                                           limit_types=limit_types)       
-        if dbref_limits:
-            # if this is set we expect a tuple of 2, even if one is None. 
-            try:
-                if dbref_limits[0]:                    
-                    results = [result for result in results
-                               if result.id >= int(dbref_limits[0].strip('#'))]
-                if dbref_limits[1]:
-                    results = [result for result in results
-                               if result.id <= int(dbref_limits[1].strip("#"))]
-            except KeyError:
-                pass
-
-        if not results:
-            emit_to_obj.emit_to("No matches found for '%s'." % ostring)
-            return  
-
-        if len(results) > 1:
-            string = "Multiple matches for '%s':" % ostring            
-            for res in results:
-                string += "\n %s" % res.name
-            emit_to_obj.emit_to(string)
-            return
-        
-        return results[0]
-
-                
     def get_sessions(self):
         """
         Returns a list of sessions matching this object.
@@ -522,6 +475,8 @@ class Object(Primitive):
             return False
 
     def has_perm_list(self, perm_list):
+        # TODO
+        return True
         """
         Checks to see whether a user has the specified permission or is a super
         user. This form accepts an iterable of strings representing permissions,
@@ -544,6 +499,8 @@ class Object(Primitive):
         return False
 
     def has_group(self, group):
+        # TODO
+        return True
         """
         Checks if a user is member of a particular user group.
         """
@@ -1598,6 +1555,26 @@ class Object(Primitive):
 
 class Player(Object):
     user = models.ForeignKey(User)
+class Door(Object):
+    destination = models.ForeignKey(Object)
+    def matches(self, txt):
+        alternatives = {}
+        alternatives["n"] = "north"
+        alternatives["s"] = "south"
+        alternatives["e"] = "east"
+        alternatives["w"] = "west"
+        alternatives["nw"] = "northwest"
+        alternatives["sw"] = "southwest"
+        alternatives["ne"] = "northeast"
+        alternatives["se"] = "southeast"
+        alternatives["u"] = "up"
+        alternatives["d"] = "down"
+        if alternatives.has_key(txt.lower()):
+            txt = alternatives[txt.lower()]
+        if self.name.lower() == txt.lower():
+            return True
+        if txt.lower() in map(lambda word: word.lower(), word_list(self.keywords)):
+            return True
 
 # Deferred imports are poopy. This will require some thought to fix.
 from src import cmdhandler

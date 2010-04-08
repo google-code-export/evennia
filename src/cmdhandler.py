@@ -504,7 +504,7 @@ def handle(command, ignore_state=False):
             try:
                 # Move to the command function, passing the command object.
                 command.command_function(command)
-            except ValueError:
+            except:
                 """
                 This is a crude way of trapping command-related exceptions
                 and showing them to the user and server log. Once the
