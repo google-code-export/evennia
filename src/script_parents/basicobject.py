@@ -11,26 +11,6 @@ from src.cmdtable import CommandTable
 from src.ansi import ANSITable
 
 class EvenniaBasicObject(object):
-    def __init__(self, scripted_obj, *args, **kwargs):
-        """
-        Get our ducks in a row. You should generally never override this. Note
-        that this will not be called on object creation in a manner typical to
-        most Python objects. This is only called when the script parent is
-        cached or recalled on an object. This means that this function is not
-        called until someone does something to warrant calling get_scriptlink().
-        This happens very often, so nothing too intense should be done here.
-        
-        If you're wanting to do something on object/player creation, override
-        at_object_creation() (in basicobject.py) or at_player_creation() 
-        (in basicplayer.py).
-        
-        scripted_obj: (Object) A reference to the object being scripted (the child).
-        """
-        self.scripted_obj = scripted_obj
-        # below is now handled by self.scripted_obj.add_command() in
-        # self.at_object_creation(). 
-        #self.command_table = CommandTable() 
-        
     def at_object_creation(self):
         """
         This is triggered after a new object is created and ready to go. If
@@ -49,7 +29,7 @@ class EvenniaBasicObject(object):
             * pobject: (Object) The object requesting the action.
         """
         # Un-comment the line below for an example
-        #print "SCRIPT TEST: %s looked at %s." % (pobject, self.scripted_obj)
+        #print "SCRIPT TEST: %s looked at %s." % (pobject, self)
         pass
         
     def at_desc(self, pobject=None):
@@ -60,7 +40,7 @@ class EvenniaBasicObject(object):
             * pobject: (Object) The object requesting the action.
         """
         # Un-comment the line below for an example
-        #print "SCRIPT TEST: %s looked at %s." % (pobject, self.scripted_obj)
+        #print "SCRIPT TEST: %s looked at %s." % (pobject, self)
         pass
 
     def at_get(self, pobject):
@@ -71,7 +51,7 @@ class EvenniaBasicObject(object):
             * pobject: (Object) The object requesting the action.
         """
         # Un-comment the line below for an example
-        #print "SCRIPT TEST: %s got %s." % (pobject, self.scripted_obj)
+        #print "SCRIPT TEST: %s got %s." % (pobject, self)
         pass
 
     def at_before_move(self, target_location):
@@ -90,24 +70,22 @@ class EvenniaBasicObject(object):
         Called when announcing to leave a destination. 
         target_location - the place we are going to
         """
-        obj = self.scripted_obj
-        loc = obj.get_location()
+        loc = self.get_location()
         if loc:
-            loc.emit_to_contents("%s has left." % obj.get_name(), exclude=obj)
+            loc.emit_to_contents("%s has left." % self.get_name(), exclude=self)
             if loc.is_player():
-                loc.emit_to("%s has left your inventory." % (obj.get_name()))
+                loc.emit_to("%s has left your inventory." % (self.get_name()))
 
     def announce_move_to(self, source_location):
         """
         Called when announcing one's arrival at a destination.
         source_location - the place we are coming from
         """
-        obj = self.scripted_obj
-        loc = obj.get_location()
+        loc = self.get_location()
         if loc: 
-            loc.emit_to_contents("%s has arrived." % obj.get_name(), exclude=obj)
+            loc.emit_to_contents("%s has arrived." % self.get_name(), exclude=self)
             if loc.is_player():
-                loc.emit_to("%s is now in your inventory." % obj.get_name())
+                loc.emit_to("%s is now in your inventory." % self.get_name())
 
     def at_after_move(self, old_loc=None):
         """
@@ -124,7 +102,7 @@ class EvenniaBasicObject(object):
             * pobject: (Object) The object requesting the action.
         """
         # Un-comment the line below for an example
-        #print "SCRIPT TEST: %s dropped %s." % (pobject, self.scripted_obj)
+        #print "SCRIPT TEST: %s dropped %s." % (pobject, self)
         pass
     
     def at_obj_receive(self, object=None, old_loc=None):
@@ -141,12 +119,12 @@ class EvenniaBasicObject(object):
             * pobject: (Object) The object requesting the action.
         """
         # This is the object being looked at.
-        target_obj = self.scripted_obj        
+        target_obj = self        
         # See if the envoker sees dbref numbers.
         lock_msg = ""
         if pobject:        
             #check visibility lock
-            if not target_obj.scriptlink.visible_lock(pobject):
+            if not target_obj.visible_lock(pobject):
                 temp = target_obj.get_attribute_value("visible_lock_msg")
                 if temp:
                     return temp
@@ -156,7 +134,7 @@ class EvenniaBasicObject(object):
 
             #check for the defaultlock, this shows a lock message after the normal desc, if one is defined.
             if target_obj.is_room() and \
-                   not target_obj.scriptlink.default_lock(pobject):
+                   not target_obj.default_lock(pobject):
                 temp = target_obj.get_attribute_value("lock_msg")
                 if temp:
                     lock_msg = "\n%s" % temp
@@ -181,7 +159,7 @@ class EvenniaBasicObject(object):
         
         for obj in target_obj.get_contents():
             # check visible lock.
-            if pobject and not obj.scriptlink.visible_lock(pobject):
+            if pobject and not obj.visible_lock(pobject):
                 continue
             if obj.is_player():
                 if (obj != pobject and obj.is_connected_plr()) or pobject == None:            

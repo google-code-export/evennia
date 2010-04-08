@@ -332,7 +332,7 @@ def match_exits(command,test=False):
         # it's not traversible.
         if targ_exit.get_home():                   
             # SCRIPT: See if the player can traverse the exit
-            if not targ_exit.scriptlink.default_lock(source_object):
+            if not targ_exit.default_lock(source_object):
                 lock_msg = targ_exit.get_attribute_value("lock_msg")
                 if lock_msg:
                     source_object.emit_to(lock_msg)
@@ -387,7 +387,7 @@ def command_table_lookup(command, command_table, eval_perms=True,
             # Check if this is just a test. 
             return True
         # Check uselocks
-        if neighbor and not neighbor.scriptlink.use_lock(command.source_object):
+        if neighbor and not neighbor.use_lock(command.source_object):
             # send an locked error message only if lock_desc is defined
             lock_msg = neighbor.get_attribute_value("use_lock_msg")
             if lock_msg:
@@ -507,7 +507,7 @@ def handle(command, ignore_state=False):
             try:
                 # Move to the command function, passing the command object.
                 command.command_function(command)
-            except:
+            except ValueError:
                 """
                 This is a crude way of trapping command-related exceptions
                 and showing them to the user and server log. Once the

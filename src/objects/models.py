@@ -3,6 +3,7 @@ This is where all of the crucial, core object models reside.
 """
 import re
 import traceback
+import time
 
 try:
     import cPickle as pickle
@@ -21,13 +22,19 @@ from src import scripthandler
 from src import defines_global
 from src import session_mgr
 from src import logger
-from src.cache import cache
+
+from idmapper.models import SharedMemoryModel as DEFAULT_MODEL
+from idmapper.base import SharedMemoryModelBase as DEFAULT_MODEL_BASE
 
 # Import as the absolute path to avoid local variable clashes.
 import src.flags
 from src.util import functions_general
 
-class Attribute(models.Model):
+# temp debug function
+def dbg(*args):
+    logger.log_errmsg(", ".join(map(str, args)))
+
+class Attribute(DEFAULT_MODEL):
     """
     Attributes are things that are specific to different types of objects. For
     example, a drink container needs to store its fill level, whereas an exit
@@ -119,8 +126,143 @@ class Attribute(models.Model):
                                self.get_value())
     value = property(fget=get_value,fset=set_value)
 
+class PrimitiveModelBase(DEFAULT_MODEL_BASE):
+    def __call__(cls, *args, **kwargs):
+        # new_instance is custom, everything else is cut and paste
+        def new_instance():
+            x = super(DEFAULT_MODEL_BASE, cls).__call__(*args, **kwargs)
+            dbg("___________________________")
+            dbg("NEW INSTANCE", id(x), x._get_pk_val())
+            # go ahead and cache it even before we init it so we don't
+            # end up in a recursive loop with primitives initing other prims
+            # repeatedly
+            cls.cache_instance(x)
+            x.at_object_creation()
+            x.already_created = True
+            return x
+        dbg("CALLING ", cls, args, kwargs)
+        instance_key = cls._get_cache_key(args, kwargs)
+        if instance_key is None:
+            return new_instance()
+        cached_instance = cls.get_cached_instance(instance_key)
+        if cached_instance is None:
+            assert(not hasattr(cached_instance, "already_created"))
+            cached_instance = new_instance()
+            cls.cache_instance(cached_instance)
+        return cached_instance
 
-class Object(models.Model):
+class PolymorphicPrimitiveForeignKey(models.Field):
+    __metaclass__ = models.SubfieldBase
+    def get_internal_type(self):
+        return "IntegerField"
+    def to_python(self, value):
+        if value is not None:
+            if type(value) is int:
+                return Primitive.objects.get(id=value).preferred_object
+            else:
+                return value
+    def get_db_prep_value(self, value):
+        if value is not None:
+            if hasattr(value, "primitive_ptr"):
+                return value.primitive_ptr.id
+            else:
+                return value.id
+
+class PreferredModel(models.CharField):
+    """ TODO: should probably return the actual model object"""
+    def __init__(self, *args, **kwargs):
+        kwargs['max_length'] = 255
+        super(models.CharField, self).__init__(*args, **kwargs)
+
+class Primitive(DEFAULT_MODEL):
+    __metaclass__ = PrimitiveModelBase
+    preferred_model = PreferredModel()
+    _location = PolymorphicPrimitiveForeignKey(blank=True,null=True,db_index=True)
+    def _set_location(self, location):
+        pself = self.preferred_object
+        if pself.location:
+            pself.location.at_leave(self)
+            pself.location.contents.remove(self)
+        pself._location = location
+        pself.location.contents.append(self)
+        pself.location.at_obj_receive(self)
+    location = property(fget=lambda self:self._location,fset=_set_location)
+    def save(self, *args, **kwargs):
+        if not self.pk and not self.preferred_model:
+            self.preferred_model = self.__module__ + "." + self.__class__.__name__
+        super(Primitive, self).save(*args, **kwargs)
+    def at_object_creation(self):
+        if hasattr(self, "already_created"):
+            return
+        try:
+           nm = self.name
+        except:
+           nm = "#%s" % self.id
+        # set up the preferred model from the get-go
+        if not self.pk and not self.preferred_model:
+            self.preferred_model = self.__module__ + "." + self.__class__.__name__
+        # dont add an item to inventory contents if its not the preferred model
+        if self is not self.preferred_object:
+            return
+        self.already_created = True
+        dbg("CREATING OBJ", nm, self, id(self))
+        self.contents = []
+        possible_contents = Primitive.objects.filter(_location=self)
+        # possible_contents = self._default_manager.filter(_location=self)
+        # cause the other objects it contains to come into being
+        for prim in possible_contents:
+            prim.preferred_object
+        if self.location:
+            # FIXME: check shouldn't be needed but avoids multiple 
+            # instances of objects showing up in room
+            if self not in self.location.contents:
+                self.location.contents.append(self.preferred_object)
+    def _get_preferred_object(self):
+        if not self.preferred_model:
+            return self
+	# Split the script name up by periods to give us the directory we need
+	# to change to. I really wish we didn't have to do this, but there's some
+	# strange issue with __import__ and more than two directories worth of
+	# nesting.
+        scriptname = self.preferred_model
+	#full_script = "%s.%s" % (settings.SCRIPT_IMPORT_PATH, self.preferred_model)
+	script_module = ".".join(self.preferred_model.split('.')[0:-1])
+	script_name = self.preferred_model.split('.')[-1]
+	try:
+	    # Change the working directory to the location of the script and import.
+	    logger.log_infomsg("SCRIPT: Caching and importing %s." % (scriptname))
+	    module = __import__(script_module, fromlist=[script_name])
+            mdl = getattr(module, script_name)
+	    # Store the module reference for later fast retrieval.
+	    #CACHED_SCRIPTS[scriptname] = modreference
+	except ImportError:
+	    logger.log_infomsg('Error importing %s: %s' % (scriptname, format_exc()))
+	    #os.chdir(settings.BASE_PATH)
+	    return
+	except OSError:
+	    logger.log_infomsg('Invalid module path: %s' % (format_exc()))
+	    #os.chdir(settings.BASE_PATH)
+	    return
+        # uglyish, nonsaved objects might still not be the preferred model
+        # probably not in reality though
+        if hasattr(mdl, "primitive_ptr") and self.id and self.preferred_model:
+            try:
+                return mdl.objects.get(primitive_ptr=self.id)
+            except:
+                dbg("IMPORTING? DEFAULTING FOR #%s, %s, %s" % (self.id, mdl, dir(self)))
+                return self
+        else:
+            #print "DEFAULTING FOR #%s, %s, %s" % (self.id, mdl, dir(self))
+            dbg("DEFAULTING FOR #%s, %s, %s" % (self.id, self, mdl))
+            return self
+    preferred_object = property(fget=_get_preferred_object)
+    def matches(self, txt):
+        if txt.lower() == self.name.lower():
+            return True
+        if txt.lower() in map(lambda word: word.lower(), word_list(self.keywords)):
+            return True
+
+class Object(Primitive):
     """
     The Object class is very generic representation of a THING, PLAYER, EXIT,
     ROOM, or other entities within the database. Pretty much anything in the
@@ -140,20 +282,10 @@ class Object(models.Model):
     home = models.ForeignKey('self',
                              related_name="obj_home",
                              blank=True, null=True)
-    type = models.SmallIntegerField(choices=defines_global.OBJECT_TYPES)
-    location = models.ForeignKey('self',
-                                 related_name="obj_location",
-                                 blank=True, null=True)
     flags = models.TextField(blank=True, null=True)
     nosave_flags = models.TextField(blank=True, null=True)
     date_created = models.DateField(editable=False,
                                     auto_now_add=True)
-
-    # 'scriptlink' is a 'get' property for retrieving a reference to the correct
-    # script object. Defined down by get_scriptlink()
-    scriptlink_cached = None
-    
-    objects = ObjectManager()
 
     # state system can set a particular command
     # table to be used (not persistent).
@@ -166,6 +298,8 @@ class Object(models.Model):
         """
         ordering = ['-date_created', 'id']
         permissions = settings.PERM_OBJECTS
+    def __str__(self):
+        return self.name
         
     def __cmp__(self, other):
         """
@@ -173,9 +307,6 @@ class Object(models.Model):
         """
         return self.id == other.id
 
-    def __str__(self):
-        return "%s" % (self.get_name(no_ansi=True),)
-    
     def dbref(self):
         """Returns the object's dbref id on the form #NN, directly
         usable by Object.objects.dbref_search()
@@ -232,7 +363,7 @@ class Object(models.Model):
                 if result.get_location() == self:
                     invtext = " (carried)"                    
                 string += "\n %i-%s%s" % (num+1,
-                                     result.get_name(show_dbref=False),
+                                     result.name,
                                      invtext)
             emit_to_obj.emit_to(string)            
             return False
@@ -276,7 +407,7 @@ class Object(models.Model):
         if len(results) > 1:
             string = "Multiple matches for '%s':" % ostring            
             for res in results:
-                string += "\n %s" % res.get_name()
+                string += "\n %s" % res.name
             emit_to_obj.emit_to(string)
             return
         
@@ -287,10 +418,7 @@ class Object(models.Model):
         """
         Returns a list of sessions matching this object.
         """
-        if self.is_player():
-            return session_mgr.sessions_from_object(self)
-        else:
-            return []                        
+        return session_mgr.sessions_from_object(self)
             
     def emit_to(self, message):
         """
@@ -298,9 +426,6 @@ class Object(models.Model):
         
         message: (str) The message to send
         """
-        # We won't allow emitting to objects... yet.
-        if not self.is_player():
-            return False
             
         sessions = self.get_sessions()
         for session in sessions:
@@ -493,48 +618,6 @@ class Object(models.Model):
         self.owner = new_owner
         self.save()
 
-    def set_name(self, new_name):
-        """
-        Rename an object.
-        """
-        self.name = parse_ansi(new_name, strip_ansi=True)
-        self.ansi_name = parse_ansi(new_name, strip_formatting=True)
-        self.save()
-        
-        # If it's a player, we need to update their user object as well.
-        if self.is_player():
-            pobject = self.get_user_account()
-            pobject.username = new_name
-            pobject.save()
-
-    def get_name(self, fullname=False, show_dbref=True, show_flags=True, 
-                                                        no_ansi=False):
-        """
-        Returns an object's name.
-        """
-        if not no_ansi and self.ansi_name:
-            name_string = self.ansi_name
-        else:
-            name_string = self.name
-            
-        if show_dbref:
-            # Allow hiding of the flags but show the dbref.
-            if show_flags:
-                flag_string = self.flag_string()
-            else:
-                flag_string = ""
-
-            dbref_string = "(#%s%s)" % (self.id, flag_string)
-        else:
-            dbref_string = ""
-        
-        if fullname:
-            return "%s%s" % (parse_ansi(name_string, strip_ansi=no_ansi), 
-                             dbref_string)
-        else:
-            return "%s%s" % (parse_ansi(name_string.split(';')[0], 
-                                             strip_ansi=no_ansi), dbref_string)
-    
     def destroy(self):    
         """
         Destroys an object, sets it to GOING. Can still be recovered
@@ -927,25 +1010,6 @@ class Object(models.Model):
                                          (self.name,self.id,self.location_id))
             return False
 
-               
-    def get_scriptlink(self):
-        """
-        Returns an object's script parent.
-        """
-        if not self.scriptlink_cached:
-            script_to_load = self.get_script_parent()
-            
-            # Load the script reference into the object's attribute.
-            self.scriptlink_cached = scripthandler.scriptlink(self, 
-                                                              script_to_load)        
-        if self.scriptlink_cached:    
-            # If the scriptlink variable can't be populated, this will fail
-            # silently and let the exception hit in the scripthandler.
-            return self.scriptlink_cached
-        return None
-    # Set a property to make accessing the scriptlink more transparent.
-    scriptlink = property(fget=get_scriptlink)
-
     def get_cache(self):
         """
         Returns an object's volatile cache (in-memory storage)
@@ -988,26 +1052,6 @@ class Object(models.Model):
             # A parent has been set, load it from the field's value.
             return self.script_parent
     
-    def set_script_parent(self, script_parent=None):
-        """
-        Sets the object's script_parent attribute and does any logistics.
-        
-        script_parent: (string) String pythonic import path of the script parent
-                                assuming the python path is game/gamesrc/parents. 
-        """        
-        if script_parent != None and scripthandler.scriptlink(self,
-                                                              str(script_parent).strip()):
-            #assigning a custom parent 
-            self.script_parent = str(script_parent).strip()
-            self.save()
-            return            
-        #use a default parent instead
-        if self.is_player():
-            self.script_parent = settings.SCRIPT_DEFAULT_PLAYER
-        else:
-            self.script_parent = settings.SCRIPT_DEFAULT_OBJECT                                        
-        self.save()
-    
     def get_contents(self, filter_type=None):
         """
         Returns the contents of an object.
@@ -1044,7 +1088,7 @@ class Object(models.Model):
         force_look: (bool) If true and self is a player, make them 'look'.
         """
         # First, check if we can enter that location at all.
-        if not target.scriptlink.enter_lock(self):
+        if not target.enter_lock(self):
             lock_desc = self.get_attribute_value("enter_lock_msg")
             if lock_desc:
                 self.emit_to(lock_desc)
@@ -1054,11 +1098,11 @@ class Object(models.Model):
         
         source_location = self.location
         owner = self.get_owner()
-        errtxt = "There was a bug in a move_to() scriptlink. Contact an admin.\n"
+        errtxt = "There was a bug in a move_to(). Contact an admin.\n"
 
         # Before the move, call eventual pre-commands.
         try:
-            if self.scriptlink.at_before_move(target) != None:                
+            if self.at_before_move(target) != None:                
                 return
         except:            
             owner.emit_to("%s%s" % (errtxt, traceback.print_exc()))
@@ -1067,7 +1111,7 @@ class Object(models.Model):
         if not quiet:
             #tell the old room we are leaving
             try:
-                self.scriptlink.announce_move_from(target)            
+                self.announce_move_from(target)            
             except:
                 owner.emit_to("%s%s" % (errtxt, traceback.print_exc()))
 
@@ -1079,18 +1123,18 @@ class Object(models.Model):
         if not quiet:
             # Tell the new room we are there. 
             try:
-                self.scriptlink.announce_move_to(source_location)
+                self.announce_move_to(source_location)
             except:
                 owner.emit_to("%s%s" % (errtxt, traceback.print_exc()))
             
         # Execute eventual extra commands on this object after moving it
         try:
-            self.scriptlink.at_after_move(source_location)
+            self.at_after_move(source_location)
         except:
             owner.emit_to("%s%s" % (errtxt, traceback.print_exc()))
         # Perform eventual extra commands on the receiving location
         try:
-            target.scriptlink.at_obj_receive(self, source_location)
+            target.at_obj_receive(self, source_location)
         except:
             owner.emit_to("%s%s" % (errtxt, traceback.print_exc()))
 
@@ -1193,16 +1237,6 @@ class Object(models.Model):
         elif otype == 'g':
             return self.is_garbage()
 
-    def flag_string(self):
-        """
-        Returns the flag string for an object. This abbreviates all of the flags
-        set on the object into a list of single-character flag characters.
-        """
-        # We have to cast this because the admin interface is really picky
-        # about tuple index types. Bleh.
-        otype = int(self.type)
-        return defines_global.OBJECT_TYPES[otype][1][0]
-
     # object custom commands
 
     def add_command(self, command_string, function,
@@ -1262,7 +1296,7 @@ class Object(models.Model):
         """
         Returns the player's current state.
         """
-        return self.cache.state
+        return self.state
     
     def set_state(self, state_name=None):
         """
@@ -1297,7 +1331,7 @@ class Object(models.Model):
         if nostate:
             return False
         # switch the state 
-        self.cache.state = state_name      
+        self.state = state_name      
         return True
             
     def clear_state(self):
@@ -1309,7 +1343,7 @@ class Object(models.Model):
         (batch processor clears the state directly instead)
         """        
         if not self.state == "_interactive batch processor":
-            self.cache.state = None
+            self.state = None
 
     def purge_object(self):
         "Completely clears all aspects of the object."
@@ -1320,6 +1354,298 @@ class Object(models.Model):
         self.owner = None 
         self.location = None
         self.save()
+### BEGIN IMPORT FROM OBJECT SCRIPT PARENT ###
+    def at_object_creation(self):
+        """
+        This is triggered after a new object is created and ready to go. If
+        you'd like to set attributes, flags, or do anything when the object
+        is created, do it here and not in __init__().
+        """
+        pass
+    
+    def at_object_destruction(self, pobject=None):
+        """
+        This is triggered when an object is about to be destroyed via
+        @destroy ONLY. If an object is deleted via delete(), it is assumed
+        that this method is to be skipped.
+        
+        values:
+            * pobject: (Object) The object requesting the action.
+        """
+        # Un-comment the line below for an example
+        #print "SCRIPT TEST: %s looked at %s." % (pobject, self)
+        pass
+        
+    def at_desc(self, pobject=None):
+        """
+        Perform this action when someone uses the LOOK command on the object.
+        
+        values:
+            * pobject: (Object) The object requesting the action.
+        """
+        # Un-comment the line below for an example
+        #print "SCRIPT TEST: %s looked at %s." % (pobject, self)
+        pass
+
+    def at_get(self, pobject):
+        """
+        Perform this action when someone uses the GET command on the object.
+        
+        values: 
+            * pobject: (Object) The object requesting the action.
+        """
+        # Un-comment the line below for an example
+        #print "SCRIPT TEST: %s got %s." % (pobject, self)
+        pass
+
+    def at_before_move(self, target_location):
+        """
+        This hook is called just before the object is moved.
+        arg:
+          target_location (obj): the place where this object is to be moved
+        returns:
+          if this function returns anything but None, the move is cancelled. 
+        
+        """
+        pass
+
+    def announce_move_from(self, target_location):
+        """
+        Called when announcing to leave a destination. 
+        target_location - the place we are going to
+        """
+        loc = self.get_location()
+        if loc:
+            loc.emit_to_contents("%s has left." % self.get_name(), exclude=self)
+            if loc.is_player():
+                loc.emit_to("%s has left your inventory." % (self.get_name()))
+
+    def announce_move_to(self, source_location):
+        """
+        Called when announcing one's arrival at a destination.
+        source_location - the place we are coming from
+        """
+        loc = self.get_location()
+        if loc: 
+            loc.emit_to_contents("%s has arrived." % self.get_name(), exclude=self)
+            if loc.is_player():
+                loc.emit_to("%s is now in your inventory." % self.get_name())
+
+    def at_after_move(self, old_loc=None):
+        """
+        This hook is called just after the object was successfully moved.
+        No return values.
+        """
+        pass
+    
+    def at_drop(self, pobject):
+        """
+        Perform this action when someone uses the DROP command on the object.
+        
+        values:
+            * pobject: (Object) The object requesting the action.
+        """
+        # Un-comment the line below for an example
+        #print "SCRIPT TEST: %s dropped %s." % (pobject, self)
+        pass
+    
+    def at_obj_receive(self, object=None, old_loc=None):
+        """
+        Called whenever an object is added to the contents of this object.        
+        """
+        pass
+
+    def return_appearance(self, pobject=None):
+        """
+        Returns a string representation of an object's appearance when LOOKed at.
+        
+        values: 
+            * pobject: (Object) The object requesting the action.
+        """
+        # This is the object being looked at.
+        target_obj = self        
+        # See if the envoker sees dbref numbers.
+        lock_msg = ""
+        if pobject:        
+            #check visibility lock
+            if not target_obj.visible_lock(pobject):
+                temp = target_obj.get_attribute_value("visible_lock_msg")
+                if temp:
+                    return temp
+                return "I don't see that here."
+            
+            show_dbrefs = pobject.sees_dbrefs()                                        
+
+            #check for the defaultlock, this shows a lock message after the normal desc, if one is defined.
+            if target_obj.is_room() and \
+                   not target_obj.default_lock(pobject):
+                temp = target_obj.get_attribute_value("lock_msg")
+                if temp:
+                    lock_msg = "\n%s" % temp
+        else:
+            show_dbrefs = False
+                        
+        description = target_obj.get_attribute_value('desc')
+        if description is not None:
+            retval = "%s%s\r\n%s%s%s" % ("%ch",
+                target_obj.get_name(show_dbref=show_dbrefs),
+                target_obj.get_attribute_value('desc'), lock_msg,
+                "%cn")
+        else:
+            retval = "%s%s%s" % ("%ch",
+                                 target_obj.get_name(show_dbref=show_dbrefs),
+                                 "%cn")
+
+        # Storage for the different object types.
+        con_players = []
+        con_things = []
+        con_exits = []
+        
+        for obj in target_obj.get_contents():
+            # check visible lock.
+            if pobject and not obj.visible_lock(pobject):
+                continue
+            if obj.is_player():
+                if (obj != pobject and obj.is_connected_plr()) or pobject == None:            
+                    con_players.append(obj)
+            elif obj.is_exit():
+                con_exits.append(obj)
+            else:
+                con_things.append(obj)
+        
+        if not con_players == []:
+            retval += "\n\r%sPlayers:%s" % (ANSITable.ansi["hilite"], 
+                                            ANSITable.ansi["normal"])
+            for player in con_players:
+                retval +='\n\r%s' % (player.get_name(show_dbref=show_dbrefs),)
+        if not con_things == []:
+            retval += "\n\r%sYou see:%s" % (ANSITable.ansi["hilite"], 
+                                             ANSITable.ansi["normal"])
+            for thing in con_things:
+                retval += '\n\r%s' % (thing.get_name(show_dbref=show_dbrefs),)
+        if not con_exits == []:
+            retval += "\n\r%sExits:%s" % (ANSITable.ansi["hilite"], 
+                                          ANSITable.ansi["normal"])
+            for exit in con_exits:
+                retval += '\n\r%s' %(exit.get_name(show_dbref=show_dbrefs),)
+
+        return retval
+
+    def default_lock(self, pobject):
+        """
+        This method returns a True or False boolean value to determine whether
+        the actor passes the lock. This is generally used for picking up
+        objects or traversing exits.
+        
+        values:
+            * pobject: (Object) The object requesting the action.
+        """
+        locks = self.get_attribute_value("LOCKS")
+        if locks: 
+            return locks.check("DefaultLock", pobject)
+        else:
+            return True
+
+    def use_lock(self, pobject):
+        """
+        This method returns a True or False boolean value to determine whether
+        the actor passes the lock. This is generally used for seeing whether
+        a player can use an object or any of its commands.
+        
+        values:
+            * pobject: (Object) The object requesting the action.
+        """
+        locks = self.get_attribute_value("LOCKS")
+        if locks: 
+            return locks.check("UseLock", pobject)
+        else:
+            return True
+
+    def enter_lock(self, pobject):
+        """
+        This method returns a True or False boolean value to determine whether
+        the actor passes the lock. This is generally used for seeing whether
+        a player can enter another object.
+        
+        values:
+            * pobject: (Object) The object requesting the action.
+        """
+        locks = self.get_attribute_value("LOCKS")
+        if locks: 
+            return locks.check("EnterLock", pobject)
+        else:
+            return True
+
+    def visible_lock(self, pobject):
+        """
+        This method returns a True or False boolean value to determine whether
+        the actor passes the lock. This is generally used for picking up
+        objects or traversing exits.
+        
+        values:
+            * pobject: (Object) The object requesting the action.
+        """
+        locks = self.get_attribute_value("LOCKS")
+        if locks: 
+            return locks.check("VisibleLock", pobject)
+        else:
+            return True
+    
+    def lock_func(self, obj):
+        """
+        This is a custom function called by locks with the FuncKey key. Its
+        return value should match that specified in the lock (so no true/false
+        lock result is actually determined in here). Default desired return
+        value is True. Also remember that the comparison in FuncKey is made
+        using the string representation of the return value, since @lock can
+        only define string lock criteria. 
+        """
+        return False
+
+    def at_pre_login(self, session):
+        """
+        Everything done here takes place before the player is actually
+        'logged in', in a sense that they're not ready to send logged in
+        commands or receive communication.
+        """
+        
+        # Load the player's channels from their JSON __CHANLIST attribute.
+        comsys.load_object_channels(self)
+        self.set_attribute("Last", "%s" % (time.strftime("%a %b %d %H:%M:%S %Y", time.localtime()),))
+        self.set_attribute("Lastsite", "%s" % (session.address[0],))
+        self.set_flag("CONNECTED", True)
+
+    def at_first_login(self):
+        """
+        This hook is called only *once*, when the player is created and logs
+        in for first time. It is called after the user has logged in, but
+        before at_post_login() is called.
+        """
+        self.emit_to("Welcome to %s, %s.\n\r" % (
+            ConfigValue.objects.get_configvalue('site_name'), 
+            self.name))
+        
+    def at_post_login(self, session):
+        """
+        The user is now logged in. This is what happens right after the moment
+        they are 'connected'.
+        """
+        self.emit_to("You are now logged in as %s." % (self.name,))
+        self.get_location().emit_to_contents("%s has connected." % 
+            (self.name,), exclude=self)
+        self.execute_cmd("look")
+
+    def at_disconnect(self):
+        """
+        This is called just before the session disconnects, for whatever reason.
+        """
+        location = self.get_location()
+        if location != None:
+            location.emit_to_contents("%s has disconnected." % (self.name,), exclude=self)
+
+class Player(Object):
+    user = models.ForeignKey(User)
 
 # Deferred imports are poopy. This will require some thought to fix.
 from src import cmdhandler
+from src import comsys

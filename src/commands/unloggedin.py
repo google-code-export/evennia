@@ -3,7 +3,7 @@ Commands that are available from the connect screen.
 """
 import traceback
 from django.contrib.auth.models import User
-from src.objects.models import Object
+from src.objects.models import Object, Player, ConfigValue
 from src import defines_global
 from src.util import functions_general
 from src.cmdtable import GLOBAL_UNCON_CMD_TABLE
@@ -32,7 +32,7 @@ def cmd_connect(command):
     password = arg_list[1]
 
     # Match an email address to an account.
-    email_matches = Object.objects.get_user_from_email(uemail)
+    email_matches = User.objects.filter(email__iexact=uemail)
     
     # No username match
     if email_matches.count() == 0:
@@ -45,8 +45,17 @@ def cmd_connect(command):
     if not user.check_password(password):
         session.msg("Incorrect password.")
     else:
-        uname = user.username
-        session.login(user)
+        potential_puppets = Player.objects.filter(user=user)
+        if potential_puppets:
+            puppet = potential_puppets[0]
+        else:
+            puppet = Player.objects.create(user=user,name=user.username)
+            player_start_loc_id = ConfigValue.objects.get_configvalue('player_dbnum_start')
+            player_start = Primitive.objects.get(id=player_start_loc_id).preferred_object
+            puppet.location = player_start
+            puppet.set_home(player_start)
+            puppet.save()
+        session.login(user,puppet)
 GLOBAL_UNCON_CMD_TABLE.add_command("connect", cmd_connect, auto_help_override=False)
         
 def cmd_create(command):
@@ -91,12 +100,11 @@ def cmd_create(command):
     # Search for a user object with the specified username.
     account = User.objects.filter(username=uname)
     # Match an email address to an account.
-    email_matches = Object.objects.get_user_from_email(email)
+    email_matches = User.objects.filter(email__iexact=email)
     # Look for any objects with an 'Alias' attribute that matches
     # the requested username
-    alias_matches = Object.objects.filter(attribute__attr_name__exact="ALIAS", 
-            attribute__attr_value__iexact=uname).filter(
-                    type=defines_global.OTYPE_PLAYER)
+    alias_matches = Player.objects.filter(attribute__attr_name__exact="ALIAS", 
+            attribute__attr_value__iexact=uname).filter()
     
     if not account.count() == 0 or not alias_matches.count() == 0:
         session.msg("Sorry, there is already a player with that name.")
@@ -106,7 +114,9 @@ def cmd_create(command):
         session.msg("Your password must be at least 3 characters or longer.\n\rFor best security, make it at least 8 characters long, avoid making it a real word and mix numbers into it.")
     else:
         try:
-            Object.objects.create_user(command, uname, email, password)
+            new_user = User.objects.create(username=uname, email=email)
+            new_user.set_password(password)
+            new_user.save()
         except:
             # we have to handle traceback ourself at this point, if we don't errors will givo no feedback.  
             session.msg("This is a bug. Please e-mail an admin if the problem persists.\n%s" % traceback.format_exc())

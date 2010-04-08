@@ -45,9 +45,8 @@ class SessionProtocol(StatefulTelnetProtocol):
     def prep_session(self):
         self.server = self.factory.server
         self.address = self.getClientAddress()
-        self.name = None
-        self.uid = None
-        #self.pobject = None
+        self.user = None
+        self.puppet = None
         self.logged_in = False
         # The time the user last issued a command.
         self.cmd_last = time.time()
@@ -81,9 +80,8 @@ class SessionProtocol(StatefulTelnetProtocol):
         if self.is_loggedin():
             # Session is logged in, run through the normal object execution.
             # Get the most up to date copy of the Object.
-            pobject = self.get_pobject()
-            if pobject:
-                pobject.execute_cmd(data, session=self)
+            if self.puppet:
+                self.puppet.execute_cmd(data, session=self)
         else:
             # Not logged in, manually execute the command.
             cmdhandler.handle(cmdhandler.Command(None, data, session=self))
@@ -92,7 +90,7 @@ class SessionProtocol(StatefulTelnetProtocol):
         """
         Sends a command to this session's object for processing.
         """
-        self.get_pobject().pobject.execute_cmd(command_str, session=self)
+        self.puppet.pobject.execute_cmd(command_str, session=self)
       
     def count_command(self, silently=False):
         """
@@ -112,37 +110,20 @@ class SessionProtocol(StatefulTelnetProtocol):
         """
         Break the connection and do some accounting.
         """
-        pobject = self.get_pobject()
-        if pobject:
+        if self.puppet:
 
             #call hook function
-            pobject.scriptlink.at_disconnect()
+            self.puppet.at_disconnect()
 
-            pobject.set_flag("CONNECTED", False)
+            self.puppet.set_flag("CONNECTED", False)
                         
-            uaccount = pobject.get_user_account()
+            uaccount = self.puppet.get_user_account()
             uaccount.last_login = datetime.now()
             uaccount.save()
             
         self.disconnectClient()
         self.logged_in = False
         session_mgr.remove_session(self)
-        
-    def get_pobject(self, log_err=True):
-        """
-        Returns the object associated with a session.
-        """        
-        try:
-            # Cache the result in the session object during
-            # the login procedure. 
-            #result = Object.objects.get(id=self.uid)
-            #self.pobject = result
-            #return result
-            return Object.objects.get(id=self.uid)
-        except:
-            if log_err:
-                logger.log_errmsg("No pobject match for session uid: %s" % self.uid)
-            return None
         
     def game_connect_screen(self):
         """
@@ -161,22 +142,20 @@ class SessionProtocol(StatefulTelnetProtocol):
         except:
             return False
     
-    def login(self, user, first_login=False):
+    def login(self, user, puppet):
         """
         After the user has authenticated, handle logging him in.
         """
-        self.uid = user.id
-        self.name = user.username
+        self.user = user
+        self.puppet = puppet
         self.logged_in = True
+        if self.conn_time:
+            puppet.at_first_login()
         self.conn_time = time.time()
         
-        pobject = self.get_pobject()
-
         #session_mgr.disconnect_duplicate_session(self)
 
-        if first_login:
-            pobject.scriptlink.at_first_login(self)
-        pobject.scriptlink.at_pre_login(self)
+        puppet.at_pre_login(self)
         
         logger.log_infomsg("Logged in: %s" % self)
         self.cemit_info('Logged in: %s' % self)
@@ -185,12 +164,7 @@ class SessionProtocol(StatefulTelnetProtocol):
         user.last_login = datetime.now()        
         user.save()
         
-        # In case the account and the object get out of sync, fix it.
-        if pobject.name != user.username:
-            pobject.set_name(user.username)
-            pobject.save()
-
-        pobject.scriptlink.at_post_login(self)
+        puppet.at_post_login(self)
         
     def msg(self, message):
         """
@@ -207,7 +181,7 @@ class SessionProtocol(StatefulTelnetProtocol):
         # Add the default channels.
         for chan in CommChannel.objects.filter(is_joined_by_default=True):            
             chan_alias = chan.get_default_chan_alias()
-            comsys.plr_add_channel(self.get_pobject(), chan_alias, chan)            
+            comsys.plr_add_channel(self.puppet, chan_alias, chan)            
             comsys.plr_set_channel_listening(self, chan_alias, True)
 
     def add_default_group(self):        
@@ -220,11 +194,9 @@ class SessionProtocol(StatefulTelnetProtocol):
         except Group.DoesNotExist:
             logger.log_errmsg("settings.DEFAULT_PLAYER_GROUP = %s is not a valid group. Using no group." % default_group)
             return
-        pobj = self.get_pobject()        
-        user = User.objects.get(username=pobj.get_name(show_dbref=False,no_ansi=True))        
-        user.groups.add(group)
+        self.user.groups.add(group)
         logger.log_infomsg("Added new player to default permission group '%s'." % default_group)
-        user.save(); pobj.save()
+        user.save();
 
     def __str__(self):
         """
@@ -235,7 +207,7 @@ class SessionProtocol(StatefulTelnetProtocol):
             symbol = '#'
         else:
             symbol = '?'
-        return "<%s> %s@%s" % (symbol, self.name, self.address,)
+        return "<%s> %s@%s" % (symbol, self.user, self.address,)
     
     def cemit_info(self, message):
         """
