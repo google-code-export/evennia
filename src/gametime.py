@@ -104,9 +104,6 @@ def time_init():
     """
     time0 = time_module.time()
     time1 = 0
-    cache.set_pcache("_game_time0", time0)
-    cache.set_pcache("_game_time", time1)
-    cache.save_pcache()
     
 def time_save():
     """
@@ -117,9 +114,6 @@ def time_save():
     """
     time0 = time_module.time()
     time1 = time(time0)
-    cache.set_pcache("_game_time0", time0)
-    cache.set_pcache("_game_time", time1)
-    cache.save_pcache()
     
 def time_last_sync():
     """
@@ -128,7 +122,7 @@ def time_last_sync():
     the time between backups. 
     """
     # Real-world timestamp for last backup
-    time0 = cache.get_pcache("_game_time0") 
+    time0 = 0
     # The correction factor is the time
     # since last backup + downtime. 
     # tmp catch due to bad init on first server crash

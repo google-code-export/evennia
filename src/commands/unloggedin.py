@@ -3,7 +3,7 @@ Commands that are available from the connect screen.
 """
 import traceback
 from django.contrib.auth.models import User
-from src.objects.models import Object, Player, ConfigValue
+from src.objects.models import Object, Primitive, Player, ConfigValue
 from src import defines_global
 from src.util import functions_general
 from src.cmdtable import GLOBAL_UNCON_CMD_TABLE

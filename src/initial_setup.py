@@ -64,7 +64,7 @@ def create_channels():
     """
     Creates some sensible default channels.
     """
-    god_user_obj = Object.objects.get(type=defines_global.OTYPE_PLAYER)
+    god_user_obj = Player.objects.get()
     chan_pub = comsys.create_channel("Public", god_user_obj, 
                                      description="Public Discussion")
     chan_pub.is_joined_by_default = True
@@ -151,6 +151,5 @@ def handle_setup():
     create_channels()
     import_help_files()
     categorize_initial_helpdb()
-    create_pcache()
     create_system_events()
     start_game_time()

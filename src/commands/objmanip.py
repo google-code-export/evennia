@@ -1614,7 +1614,7 @@ def cmd_examine(command):
         con_exits = []
         
         # Break each object out into their own list.
-        for obj in target_obj.get_contents():
+        for obj in target_obj.contents:
             if obj.is_player():
                 con_players.append(obj)  
             elif obj.is_exit():

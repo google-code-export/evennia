@@ -293,19 +293,16 @@ def match_exits(command,test=False):
     """
     # If we're not logged in, don't check exits.
     source_object = command.source_object
-    location = source_object.get_location()
+    location = source_object.location
     
     if location == None:
         logger.log_errmsg("cmdhandler.match_exits(): Object '%s' has no location." % 
                           source_object)
         return
+    # TODO, we don't currently match exits
+    return None
     # get all exits at location
-    exits = location.get_contents(filter_type=defines_global.OTYPE_EXIT)
     
-    # /not sure why this was done this way when one can import Object. 
-    # Object = ContentType.objects.get(app_label="objects", 
-    #                                 model="object").model_class()
-
     exit_matches = None 
     if command.command_alternatives:
         # we have command alternatives (due to spaces in command definition).
@@ -416,7 +413,7 @@ def match_neighbor_ctables(command,test=False):
     location = source_object.get_location()
     if location:
         # get all objects, including the current room
-        neighbors = location.get_contents()  + [location] + source_object.get_contents()
+        neighbors = location.contents  + [location] + source_object.contents
         for neighbor in neighbors:
             #print "neighbor:", neighbor 
             obj_cmdtable = neighbor.get_cmdtable()

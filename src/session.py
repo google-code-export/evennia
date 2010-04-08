@@ -75,7 +75,7 @@ class SessionProtocol(StatefulTelnetProtocol):
     def lineReceived(self, data):
         """
         Any line return indicates a command for the purpose of a MUD. So we take
-        the user input and pass it to this session's pobject.
+        the user input and pass it to this session's puppet.
         """
         if self.is_loggedin():
             # Session is logged in, run through the normal object execution.
@@ -90,7 +90,7 @@ class SessionProtocol(StatefulTelnetProtocol):
         """
         Sends a command to this session's object for processing.
         """
-        self.puppet.pobject.execute_cmd(command_str, session=self)
+        self.puppet.execute_cmd(command_str, session=self)
       
     def count_command(self, silently=False):
         """
@@ -117,9 +117,8 @@ class SessionProtocol(StatefulTelnetProtocol):
 
             self.puppet.set_flag("CONNECTED", False)
                         
-            uaccount = self.puppet.get_user_account()
-            uaccount.last_login = datetime.now()
-            uaccount.save()
+            self.user.last_login = datetime.now()
+            self.user.save()
             
         self.disconnectClient()
         self.logged_in = False
