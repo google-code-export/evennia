@@ -22,9 +22,10 @@ from src import scripthandler
 from src import defines_global
 from src import session_mgr
 from src import logger
+from src import session_mgr
 
-from idmapper.models import SharedMemoryModel as DEFAULT_MODEL
-from idmapper.base import SharedMemoryModelBase as DEFAULT_MODEL_BASE
+from src.idmapper.models import SharedMemoryModel as DEFAULT_MODEL
+from src.idmapper.base import SharedMemoryModelBase as DEFAULT_MODEL_BASE
 
 # Import as the absolute path to avoid local variable clashes.
 import src.flags
@@ -181,7 +182,7 @@ class Primitive(DEFAULT_MODEL):
     def _set_location(self, location):
         pself = self.preferred_object
         if pself.location:
-            pself.location.at_leave(self)
+            pself.location.at_leave(self) # 
             pself.location.contents.remove(self)
         pself._location = location
         pself.location.contents.append(self)
@@ -1131,7 +1132,7 @@ class Object(Primitive):
 
     # Type comparison methods.
     def is_player(self):
-        return self.type == defines_global.OTYPE_PLAYER
+        return session_mgr.sessions_from_object(self) != []
     def is_room(self):    
         return self.type == defines_global.OTYPE_ROOM
     def is_thing(self):
@@ -1334,6 +1335,12 @@ class Object(Primitive):
         #print "SCRIPT TEST: %s got %s." % (pobject, self)
         pass
 
+    def at_leave(self, obj):
+        """
+        Hook for the location from which an object is moved
+        """
+        pass
+    
     def at_before_move(self, target_location):
         """
         This hook is called just before the object is moved.
@@ -1552,6 +1559,11 @@ class Object(Primitive):
         location = self.get_location()
         if location != None:
             location.emit_to_contents("%s has disconnected." % (self.name,), exclude=self)
+
+
+#
+# Base MUD object types 
+#
 
 class Player(Object):
     user = models.ForeignKey(User)
