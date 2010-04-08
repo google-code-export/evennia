@@ -1555,7 +1555,7 @@ class Object(Primitive):
 
 class Player(Object):
     user = models.ForeignKey(User)
-class Door(Object):
+class Exit(Object):
     destination = models.ForeignKey(Object)
     def matches(self, txt):
         alternatives = {}
@@ -1575,6 +1575,8 @@ class Door(Object):
             return True
         if txt.lower() in map(lambda word: word.lower(), word_list(self.keywords)):
             return True
+class Thing(Object):
+    pass
 
 # Deferred imports are poopy. This will require some thought to fix.
 from src import cmdhandler
