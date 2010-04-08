@@ -71,7 +71,7 @@ class EventCloselid(IntervalEvent):
             # again since it might have changed. 
             obj = Object.objects.get_object_from_dbref(self.obj_dbref)
             if obj.has_flag("LID_OPEN"):
-                obj.scriptlink.close_lid()
+                obj.close_lid()
                 retval = "The glass cover over the button silently closes by itself."
                 obj.get_location().emit_to_contents(retval)
         except:
@@ -100,7 +100,7 @@ def cmd_open_lid(command):
         retval = "The lid is already open."
     else:
         retval = "You lift the lid, exposing the tempting button."
-        obj.scriptlink.open_lid()
+        obj.open_lid()
     command.source_object.emit_to(retval)
 
 def cmd_close_lid(command):
@@ -112,7 +112,7 @@ def cmd_close_lid(command):
         retval = "The lid is already open."
     else:
         retval = "You secure the glass cover over the button."
-        obj.scriptlink.close_lid()
+        obj.close_lid()
     command.source_object.emit_to(retval)
 
 def cmd_push_button(command):
@@ -127,7 +127,7 @@ def cmd_push_button(command):
         retval = "You press the button ..."
         retval += "\n ..."    
         retval += "\n BOOOOOM!"
-        obj.scriptlink.close_lid()
+        obj.close_lid()
     else:
         retval = "There is a glass lid covering "
         retval += "the button as a safety measure. If you "

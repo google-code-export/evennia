@@ -83,20 +83,6 @@ player_name_search = Object.objects.player_name_search
 local_and_global_search = Object.objects.local_and_global_search
 
 
-#------------------------------------------------------------
-# Creation commands
-#------------------------------------------------------------
-
-# def create_object(name, otype, location, owner, home=None, script_parent=None):
-#    Create a new object
-create_object = Object.objects.create_object
-
-# def copy_object(original_object, new_name=None, new_location=None, reset=False):
-#     Create and return a new object as a copy of the source object. All will
-#     be identical to the original except for the dbref. Does not allow the
-#     copying of Player objects.
-copy_object = Object.objects.copy_object
-
 
 #------------------------------------------------------------
 # Validation

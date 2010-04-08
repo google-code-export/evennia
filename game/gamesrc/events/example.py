@@ -56,7 +56,7 @@ class EventBlinkButton(IntervalEvent):
 
         for b in buttons:
             try:
-                b.scriptlink.blink()
+                b.blink()
             except:
                 # Print all tracebacks to the log instead of letting them by. 
                 # This is important, we must handle these exceptions gracefully!
