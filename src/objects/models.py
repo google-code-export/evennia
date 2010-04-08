@@ -449,18 +449,9 @@ class Object(Primitive):
         """
         Emits something to all objects inside an object.
         """
-        contents = self.get_contents()
-
-        if exclude:
-            try:
-                contents.remove(exclude)
-            except ValueError:
-                # Sometimes very weird things happen with locations, fail
-                # silently.
-                pass
-            
-        for obj in contents:
-            obj.emit_to(message)
+        for x in self.contents:
+            if x != exclude:
+                x.emit_to(message)
             
     def get_user_account(self):
         """
@@ -676,8 +667,8 @@ class Object(Primitive):
         Destroys all of the exits and any exits pointing to this
         object as a destination.
         """
-        exits = self.get_contents(filter_type=defines_global.OTYPE_EXIT)
-        exits += self.obj_home.all().filter(type__exact=defines_global.OTYPE_EXIT)
+        exits = self.exits
+        exits += self.obj_home.all().exits
 
         for exit in exits:
             exit.destroy()
@@ -1052,17 +1043,6 @@ class Object(Primitive):
             # A parent has been set, load it from the field's value.
             return self.script_parent
     
-    def get_contents(self, filter_type=None):
-        """
-        Returns the contents of an object.
-        
-        filter_type: (int) An object type number to filter by.
-        """
-        if filter_type:
-            return list(Object.objects.filter(location__id=self.id).filter(type=filter_type))
-        else:
-            return list(Object.objects.filter(location__id=self.id).exclude(type__gt=4))
-        
     def get_zone(self):
         """
         Returns the object that is marked as this object's zone.
@@ -1190,8 +1170,7 @@ class Object(Primitive):
         
         oname: (str) The string to filter from.
         """
-        contents = self.get_contents()
-        return [prospect for prospect in contents if prospect.name_match(oname)]
+        return [prospect for prospect in self.contents if prospect.name_match(oname)]
 
     # Type comparison methods.
     def is_player(self):
@@ -1361,7 +1340,7 @@ class Object(Primitive):
         you'd like to set attributes, flags, or do anything when the object
         is created, do it here and not in __init__().
         """
-        pass
+        x = super(Object, self).at_object_creation()
     
     def at_object_destruction(self, pobject=None):
         """
@@ -1416,9 +1395,9 @@ class Object(Primitive):
         """
         loc = self.get_location()
         if loc:
-            loc.emit_to_contents("%s has left." % self.get_name(), exclude=self)
+            loc.emit_to_contents("%s has left." % self.name, exclude=self)
             if loc.is_player():
-                loc.emit_to("%s has left your inventory." % (self.get_name()))
+                loc.emit_to("%s has left your inventory." % (self.name))
 
     def announce_move_to(self, source_location):
         """
@@ -1427,9 +1406,9 @@ class Object(Primitive):
         """
         loc = self.get_location()
         if loc: 
-            loc.emit_to_contents("%s has arrived." % self.get_name(), exclude=self)
+            loc.emit_to_contents("%s has arrived." % self.name, exclude=self)
             if loc.is_player():
-                loc.emit_to("%s is now in your inventory." % self.get_name())
+                loc.emit_to("%s is now in your inventory." % self.name)
 
     def at_after_move(self, old_loc=None):
         """
@@ -1477,58 +1456,32 @@ class Object(Primitive):
             show_dbrefs = pobject.sees_dbrefs()                                        
 
             #check for the defaultlock, this shows a lock message after the normal desc, if one is defined.
-            if target_obj.is_room() and \
-                   not target_obj.default_lock(pobject):
-                temp = target_obj.get_attribute_value("lock_msg")
-                if temp:
-                    lock_msg = "\n%s" % temp
+            #TODO - not sure why this should be restricted to rooms so disabled
+            if False:
+		if target_obj.is_room() and \
+		       not target_obj.default_lock(pobject):
+		    temp = target_obj.get_attribute_value("lock_msg")
+		    if temp:
+			lock_msg = "\n%s" % temp
         else:
             show_dbrefs = False
                         
         description = target_obj.get_attribute_value('desc')
         if description is not None:
             retval = "%s%s\r\n%s%s%s" % ("%ch",
-                target_obj.get_name(show_dbref=show_dbrefs),
+                target_obj.name,
                 target_obj.get_attribute_value('desc'), lock_msg,
                 "%cn")
         else:
             retval = "%s%s%s" % ("%ch",
-                                 target_obj.get_name(show_dbref=show_dbrefs),
+                                 target_obj.name,
                                  "%cn")
-
-        # Storage for the different object types.
-        con_players = []
-        con_things = []
-        con_exits = []
-        
-        for obj in target_obj.get_contents():
-            # check visible lock.
-            if pobject and not obj.visible_lock(pobject):
-                continue
-            if obj.is_player():
-                if (obj != pobject and obj.is_connected_plr()) or pobject == None:            
-                    con_players.append(obj)
-            elif obj.is_exit():
-                con_exits.append(obj)
-            else:
-                con_things.append(obj)
-        
-        if not con_players == []:
-            retval += "\n\r%sPlayers:%s" % (ANSITable.ansi["hilite"], 
-                                            ANSITable.ansi["normal"])
-            for player in con_players:
-                retval +='\n\r%s' % (player.get_name(show_dbref=show_dbrefs),)
-        if not con_things == []:
+        if self.contents:
             retval += "\n\r%sYou see:%s" % (ANSITable.ansi["hilite"], 
-                                             ANSITable.ansi["normal"])
-            for thing in con_things:
-                retval += '\n\r%s' % (thing.get_name(show_dbref=show_dbrefs),)
-        if not con_exits == []:
-            retval += "\n\r%sExits:%s" % (ANSITable.ansi["hilite"], 
-                                          ANSITable.ansi["normal"])
-            for exit in con_exits:
-                retval += '\n\r%s' %(exit.get_name(show_dbref=show_dbrefs),)
-
+                                            ANSITable.ansi["normal"])
+            for obj in self.contents:
+                retval +='\n\r%s' % (obj.name,)
+            
         return retval
 
     def default_lock(self, pobject):

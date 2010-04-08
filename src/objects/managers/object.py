@@ -374,8 +374,8 @@ class ObjectManager(models.Manager):
         # If the search string is one of the following, return immediately with
         # the appropriate result.
         
-        if searcher.get_location().dbref_match(ostring) or ostring == 'here':
-            return [searcher.get_location()]
+        if searcher.location.dbref_match(ostring) or ostring == 'here':
+            return [searcher.location]
         elif ostring == 'me' and searcher:
             return [searcher]
 
@@ -390,9 +390,9 @@ class ObjectManager(models.Manager):
         # name and dbref comparisons against search_query.
         local_objs = []
         if search_contents: 
-            local_objs.extend(searcher.get_contents())
+            local_objs.extend(searcher.contents)
         if search_location:
-            local_objs.extend(searcher.get_location().get_contents())
+            local_objs.extend(searcher.location.contents)
         return self.list_search_object_namestr(local_objs, search_query,
                                                limit_types=limit_types,
                                                attribute_name=attribute_name)        

@@ -239,7 +239,7 @@ def cmd_inventory(command):
     source_object = command.source_object
     source_object.emit_to("You are carrying:")
     
-    for item in source_object.get_contents():
+    for item in source_object.contents:
         source_object.emit_to(" %s" % (item.get_name(),))
         
     money = int(source_object.get_attribute_value("MONEY", default=0))
