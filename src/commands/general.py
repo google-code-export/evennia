@@ -103,7 +103,7 @@ def cmd_emit(command):
         if len(results) > 1:
             string = "There are multiple matches. Please use #dbref to be more specific."
             for result in results:
-                string += "\n %s" % results.get_name(show_dbref=True)
+                string += "\n %s" % results.name
             source_object.emit_to(string)
             return
         tobjects.append(results[0])
@@ -122,7 +122,7 @@ def cmd_emit(command):
         norooms = players + exits + things
         if norooms:            
             source_object.emit_to("These are not rooms: %s" %
-                                  ", ".join([r.get_name() for r in norooms]))
+                                  ", ".join([r.name for r in norooms]))
             return
         for room in rooms:
             room.emit_to_contents(message, exclude=source_object)
@@ -131,7 +131,7 @@ def cmd_emit(command):
         allobj = players + rooms + exits + things
         for obj in allobj:
             if not source_object.controls_other(obj):
-                source_object.emit_to("Cannot emit to %s (you don's control it)" % obj.get_name())
+                source_object.emit_to("Cannot emit to %s (you don's control it)" % obj.name)
                 continue
             obj.emit_to_contents(message)
     else:
@@ -144,11 +144,11 @@ def cmd_emit(command):
             obj.get_home().emit_to_contents(message)
         for obj in things:
             if not source_object.controls_other(obj):
-                source_object.emit_to("Cannot emit to %s (you don's control it)" % obj.get_name())
+                source_object.emit_to("Cannot emit to %s (you don's control it)" % obj.name)
                 continue
             obj. emit_to_contents(message)
     allobj = players + rooms + exits + things
-    string = ", ".join([obj.get_name() for obj in allobj])
+    string = ", ".join([obj.name for obj in allobj])
     source_object.emit_to("Emitted message to: %s." % string)
 GLOBAL_CMD_TABLE.add_command("@emit", cmd_emit,
                              priv_tuple=("genperms.announce",),help_category="Comms")
@@ -208,7 +208,7 @@ def cmd_wall(command):
         return
         
     message = "%s shouts \"%s\"" % (
-            command.source_object.get_name(show_dbref=False), wallstring)
+            command.source_object.name, wallstring)
     session_mgr.announce_all(message)
 GLOBAL_CMD_TABLE.add_command("@wall", cmd_wall,
                              priv_tuple=("genperms.announce",),help_category="Comms")
@@ -240,7 +240,7 @@ def cmd_inventory(command):
     source_object.emit_to("You are carrying:")
     
     for item in source_object.contents:
-        source_object.emit_to(" %s" % (item.get_name(),))
+        source_object.emit_to(" %s" % (item.name,))
         
     money = int(source_object.get_attribute_value("MONEY", default=0))
     if money == 1:
@@ -325,10 +325,10 @@ def cmd_get(command):
         return
             
     target_obj.move_to(source_object, quiet=True)
-    source_object.emit_to("You pick up %s." % (target_obj.get_name(show_dbref=False),))
+    source_object.emit_to("You pick up %s." % (target_obj.name,))
     source_object.get_location().emit_to_contents("%s picks up %s." % 
-                                    (source_object.get_name(show_dbref=False), 
-                                     target_obj.get_name(show_dbref=False)), 
+                                    (source_object.name, 
+                                     target_obj.name), 
                                      exclude=source_object)
     
     # SCRIPT: Call the object's script's a_get() method.
@@ -361,10 +361,10 @@ def cmd_drop(command):
         return
         
     target_obj.move_to(source_object.get_location(), quiet=True)
-    source_object.emit_to("You drop %s." % (target_obj.get_name(show_dbref=False),))
+    source_object.emit_to("You drop %s." % (target_obj.name,))
     source_object.get_location().emit_to_contents("%s drops %s." % 
-                                            (source_object.get_name(show_dbref=False), 
-                                             target_obj.get_name(show_dbref=False)), 
+                                            (source_object.name, 
+                                             target_obj.name), 
                                              exclude=source_object)
 
     # SCRIPT: Call the object script's a_drop() method.
@@ -436,7 +436,7 @@ def cmd_who(command):
                 player.address[0])
         else:
             retval += '%-31s%9s %4s%-3s\r\n' % \
-                (plr_pobject.get_name(show_dbref=False)[:25], \
+                (plr_pobject.name[:25], \
                 # On-time
                 functions_general.time_format(delta_conn,0), \
                 # Idle time
@@ -472,7 +472,7 @@ def cmd_say(command):
                                                ANSITable.ansi['normal']))
     
     # Build the string to emit to neighbors.
-    emit_string = "%s says, '%s'" % (source_object.get_name(show_dbref=False), 
+    emit_string = "%s says, '%s'" % (source_object.name, 
                                      speech)
     
     source_object.get_location().emit_to_contents(emit_string, 
@@ -509,23 +509,23 @@ def cmd_fsay(command):
     if len(results) > 1:
         string = "There are multiple matches. Please use #dbref to be more specific."
         for result in results:
-            string += "\n %s" % results.get_name(show_dbref=True)
+            string += "\n %s" % results.name
         source_object.emit_to(string)
         return
     target = results[0]
 
     # permission check
     if not source_object.controls_other(target):
-        source_object.emit_to("Cannot pose %s (you don's control it)" % target.get_name())
+        source_object.emit_to("Cannot pose %s (you don's control it)" % target.name)
         return
         
     # Feedback for the object doing the talking.
-    source_object.emit_to("%s says, '%s%s'" % (target.get_name(show_dbref=False),
+    source_object.emit_to("%s says, '%s%s'" % (target.name,
                                                speech,
                                                ANSITable.ansi['normal']))
     
     # Build the string to emit to neighbors.
-    emit_string = "%s says, '%s'" % (target.get_name(show_dbref=False), 
+    emit_string = "%s says, '%s'" % (target.name, 
                                      speech)    
     target.get_location().emit_to_contents(emit_string, 
                                                   exclude=source_object)
@@ -561,11 +561,11 @@ def cmd_pose(command):
     
     if "nospace" in command.command_switches:
         # Output without a space between the player name and the emote.
-        sent_msg = "%s%s" % (source_object.get_name(show_dbref=False), 
+        sent_msg = "%s%s" % (source_object.name, 
                              pose_string)
     else:
         # No switches, default.
-        sent_msg = "%s %s" % (source_object.get_name(show_dbref=False), 
+        sent_msg = "%s %s" % (source_object.name, 
                               pose_string)
     
     source_object.get_location().emit_to_contents(sent_msg)
@@ -606,23 +606,23 @@ def cmd_fpose(command):
     if len(results) > 1:
         string = "There are multiple matches. Please use #dbref to be more specific."
         for result in results:
-            string += "\n %s" % results.get_name(show_dbref=True)
+            string += "\n %s" % results.name
         source_object.emit_to(string)
         return
     target = results[0]
 
     # permission check
     if not source_object.controls_other(target):
-        source_object.emit_to("Cannot pose %s (you don's control it)" % target.get_name())
+        source_object.emit_to("Cannot pose %s (you don's control it)" % target.name)
         return
     
     if "nospace" in command.command_switches:
         # Output without a space between the player name and the emote.
-        sent_msg = "%s%s" % (target.get_name(show_dbref=False), 
+        sent_msg = "%s%s" % (target.name, 
                              pose_string)
     else:
         # No switches, default.
-        sent_msg = "%s %s" % (target.get_name(show_dbref=False), 
+        sent_msg = "%s %s" % (target.name, 
                               pose_string)
     
     source_object.get_location().emit_to_contents(sent_msg)
@@ -654,9 +654,9 @@ def cmd_group(command):
         for perm in group.permissions.all():
             string += "\n   --- %s" % perm.name        
     if not string:
-        string = "You are not a member of any groups." % source_object.get_name(show_dbref=False)
+        string = "You are not a member of any groups." % source_object.name
     else: 
-        string = "\nYour (%s's) group memberships: %s" % (source_object.get_name(show_dbref=False), string)     
+        string = "\nYour (%s's) group memberships: %s" % (source_object.name, string)     
     source_object.emit_to(string)
 GLOBAL_CMD_TABLE.add_command("@group", cmd_group)    
 GLOBAL_CMD_TABLE.add_command("@groups", cmd_group, help_category="System")    
