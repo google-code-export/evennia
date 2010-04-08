@@ -1556,7 +1556,7 @@ class Object(Primitive):
 class Player(Object):
     user = models.ForeignKey(User)
 class Exit(Object):
-    destination = models.ForeignKey(Object)
+    destination = models.ForeignKey(Object, related_name="_destination")
     def matches(self, txt):
         alternatives = {}
         alternatives["n"] = "north"
