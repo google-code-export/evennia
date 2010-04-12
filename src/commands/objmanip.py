@@ -1301,12 +1301,12 @@ def cmd_destroy(command):
             if target_obj.is_superuser():
                 source_object.emit_to("%s: You can't destroy a superuser." % targetname)
                 continue
-        elif target_obj.is_garbage():
-            source_object.emit_to("%s: That object is already destroyed." % targetname)
-            continue
-        elif target_obj.is_going() and 'instant' not in switches:
-            source_object.emit_to("%s: That object is already scheduled for destruction." % targetname) 
-            continue
+        ## elif target_obj.is_garbage():
+        ##     source_object.emit_to("%s: That object is already destroyed." % targetname)
+        ##     continue            
+        ## elif target_obj.is_going() and 'instant' not in switches:
+        ##     source_object.emit_to("%s: That object is already scheduled for destruction." % targetname) 
+#            continue
         
         # Run any scripted things that happen before destruction.
         target_obj.at_object_destruction(pobject=source_object)
