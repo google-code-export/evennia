@@ -276,8 +276,6 @@ class Object(Primitive):
     zone = models.ForeignKey('self',
                              related_name="obj_zone",
                              blank=True, null=True)
-    script_parent = models.CharField(max_length=255,
-                                     blank=True, null=True)
     home = models.ForeignKey('self',
                              related_name="obj_home",
                              blank=True, null=True)
@@ -567,58 +565,43 @@ class Object(Primitive):
         self.owner = new_owner
         self.save()
 
-    def destroy(self):    
+    def destroy(self, destroy_players=False,
+                destroy_contents=False):    
         """
-        Destroys an object, sets it to GOING. Can still be recovered
-        if the user decides to.
+        Destroy an object after first safely removing objects inside
+        it as well cleaning up exits. 
         """
         
-        # See if we need to kick the player off.
-        sessions = self.get_sessions()
-        for session in sessions:
-            session.msg("You have been destroyed, goodbye.")
-            session.handle_close()
-            
-        # If the object is a player, set the player account object to inactive.
-        # It can still be recovered at this point.        
-        if self.is_player():
-            try:
-                uobj = User.objects.get(id=self.id)
-                uobj.is_active = False
-                uobj.save()
-            except:
-                string = 'Destroying object %s but no matching player.' % (self,)
-                functions_general.log_errmsg(string)
-
+        if self.is_player() and not destroy_players:
+            # Protect against destroying players unless we have
+            # specifically set the keyword for it. 
+            logger.log_errmsg("Not allowed to destroy a Player.")
+            return
+        
         # Clear out any objects located within the object
-        self.clear_objects()
-        # Set the object type to GOING
-        self.type = defines_global.OTYPE_GOING                
+
+        # TODO: Temporarily disabled until it's clear how the contents
+        # are stored.        
+        #self.clear_objects()            
+
         # Destroy any exits to and from this room, do this first
-        self.clear_exits()
-        self.save()
+        # TODO: temporarily disabled.
+        #self.clear_exits()
+
+        # Destroy this object permanently
+        self.delete()
               
     def delete(self):
         """
-        Deletes an object permanently. Marks it for re-use by a new object.
+        Deletes an object permanently. Observe that this will not  
         """
-        # Delete the associated player object permanently.
-        uobj = User.objects.filter(id=self.id)
-        if len(uobj) > 0:
-            # clean out channel memberships
-            memberships = self.channel_membership_set.filter(listener=self)
-            for membership in memberships: 
-                membership.delete()                
-            # delete user 
-            uobj[0].delete()
-            
-        # Set the object to type GARBAGE.
-        self.type = defines_global.OTYPE_GARBAGE
-        self.save()
-
-        # Clear all attributes & flags
-        self.clear_all_attributes()
-        self.clear_all_flags()
+        # check if this is a player. Kick their session.
+        sessions = self.get_sessions()
+        for session in sessions:
+            session.msg("You have been deleted. Goodbye.")
+            session.handle_close()            
+        # delete the object 
+        super(Object, self).delete()
 
     def clear_exits(self):
         """
@@ -959,47 +942,46 @@ class Object(Primitive):
                                          (self.name,self.id,self.location_id))
             return False
 
-    def get_cache(self):
-        """
-        Returns an object's volatile cache (in-memory storage)
-        """
-        return cache.get_cache(self.dbref())
+## #    def get_cache(self):
+## #        """
+## #        Returns an object's volatile cache (in-memory storage)
+## #        """
+## #        return cache.get_cache(self.dbref())
 
-    def del_cache(self):
-        """
-        Cleans the object cache for this object
-        """
-        cache.flush_cache(self.dbref())
+## #    def del_cache(self):
+## #        """
+## #        Cleans the object cache for this object
+## #        """
+## #        cache.flush_cache(self.dbref())        
+## #    cache = property(fget=get_cache, fdel=del_cache)
+
+    ## def get_pcache(self):
+    ##     """
+    ##     Returns an object's persistent cache (in-memory storage)
+    ##     """
+    ##     return cache.get_pcache(self.dbref())
+
+    ## def del_pcache(self):
+    ##     """
+    ##     Cleans the object persistent cache for this object
+    ##     """
+    ##     cache.flush_pcache(self.dbref())
         
-    cache = property(fget=get_cache, fdel=del_cache)
-
-    def get_pcache(self):
-        """
-        Returns an object's persistent cache (in-memory storage)
-        """
-        return cache.get_pcache(self.dbref())
-
-    def del_pcache(self):
-        """
-        Cleans the object persistent cache for this object
-        """
-        cache.flush_pcache(self.dbref())
-        
-    pcache = property(fget=get_pcache, fdel=del_pcache)
+    ## pcache = property(fget=get_pcache, fdel=del_pcache)
     
-    def get_script_parent(self):
-        """
-        Returns a string representing the object's script parent.
-        """
-        if not self.script_parent or self.script_parent.strip() == '':
-            # No parent value, assume the defaults based on type.
-            if self.is_player():
-                return settings.SCRIPT_DEFAULT_PLAYER
-            else:
-                return settings.SCRIPT_DEFAULT_OBJECT
-        else:
-            # A parent has been set, load it from the field's value.
-            return self.script_parent
+    ## def get_script_parent(self):
+    ##     """
+    ##     Returns a string representing the object's script parent.
+    ##     """
+    ##     if not self.script_parent or self.script_parent.strip() == '':
+    ##         # No parent value, assume the defaults based on type.
+    ##         if self.is_player():
+    ##             return settings.SCRIPT_DEFAULT_PLAYER
+    ##         else:
+    ##             return settings.SCRIPT_DEFAULT_OBJECT
+    ##     else:
+    ##         # A parent has been set, load it from the field's value.
+    ##         return self.script_parent
     
     def get_zone(self):
         """
@@ -1139,10 +1121,10 @@ class Object(Primitive):
         return self.type == defines_global.OTYPE_THING
     def is_exit(self):
         return self.type == defines_global.OTYPE_EXIT
-    def is_going(self):
-        return self.type == defines_global.OTYPE_GOING
-    def is_garbage(self):
-        return self.type == defines_global.OTYPE_GARBAGE
+#    def is_going(self):
+#        return self.type == defines_global.OTYPE_GOING
+#    def is_garbage(self):
+#        return self.type == defines_global.OTYPE_GARBAGE
     
     def get_type(self, return_number=False):
         """
