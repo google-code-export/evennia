@@ -1,16 +1,17 @@
 from src.objects.models import Object as OBJECT
 from django.db import models
 from django.contrib.auth.models import User
-
+from src.objects.models import AttributeField
 
 class Object(OBJECT):
-   pass
+    pass
+
 class Player(Object):
     user = models.ForeignKey(User)
     pc = True
+    MONEY = AttributeField(default=0)
 
-
-#from django.db.models.loading import register_models, get_model
-#register_models("game", red.RedButton)
-#from django.contrib.contenttypes.models import ContentType
-#ContentType.objects.get_or_create(app_label = "game", model="game.RedButton",name="game.RedButton")
+from django.db.models.loading import register_models, get_model
+import red
+if red.RedButton._meta.abstract:
+   register_models("game", red.RedButton)

@@ -26,6 +26,7 @@ from src import logger
 from django.db import models
 from django.contrib.auth.models import User
 
+from src.objects.models import AttributeField
 
 #
 # Events
@@ -152,18 +153,20 @@ class RedButton(Object):
     above to close the lid 
     """
     class Meta:
-       abstract = True
-    pushed = models.BooleanField()
+        abstract = True
+        # gotta figure out a way to set all Objects to this app_label
+        app_label = "game"
+    desc = AttributeField(default="This is a big red button. It has a glass cover.")
+    breakpoint = AttributeField(default=5)
+    count = AttributeField(default=0)
+    lid_open = AttributeField(default=0)
+    
+    #pushed = models.BooleanField()
     def at_object_creation(self):
         """
         This function is called when object is created. Use this
         preferably over __init__.
         """        
-        #get stored object related to this class
-        #self.set_attribute('desc', "This is a big red button. It has a glass cover.")
-        #self.set_attribute("breakpoint", 5)
-        #self.set_attribute("count", 0)
-
         # add the object-based commands to the button
         #self.add_command("open lid", cmd_open_lid)
         #self.add_command("lift lid", cmd_open_lid)
@@ -177,14 +180,14 @@ class RedButton(Object):
         Open the glass lid and start the timer so it will
         soon close again. 
         """
-        self.scripted_obj.set_flag("LID_OPEN")
-        scheduler.add_event(EventCloselid(self.scripted_obj))
+        self.lid_open = True
+        scheduler.add_event(EventCloselid(self))
     
     def close_lid(self):
         """
         Close the glass lid
         """
-        self.scripted_obj.unset_flag("LID_OPEN")
+        self.lid_open = False
 
     def blink(self):
         """
@@ -193,20 +196,9 @@ class RedButton(Object):
         to store the variable count and breakpoint in a persistent
         way.
         """
-        obj = self.scripted_obj
-        
-        try:            
-            count = int(obj.get_attribute_value("count"))
-            breakpoint = int(obj.get_attribute_value("breakpoint"))        
-        except TypeError:
-            return 
-
-        if count <= breakpoint:
-            if int(count) == int(breakpoint):            
-                string = "The button flashes, then goes dark. "
-                string += "Looks like the lamp just broke."
+        if self.count <= self.breakpoint:
+            if self.breakpoint:            
+                self.emit("The button flashes, then goes dark.")
             else: 
-                string = "The red button flashes, demanding your attention."
-            count += 1            
-            obj.set_attribute("count", count)            
-            obj.get_location().emit_to_contents(string)
+                self.emit("The red button flashes, demanding your attention.")
+            self.count += 1            
