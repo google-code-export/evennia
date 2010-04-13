@@ -117,10 +117,6 @@ def cmd_boot(command):
                 source_object.emit_to("No name or dbref match found for booting.")
                 return
 
-            if not objs[0].is_player():
-                source_object.emit_to("You can only boot players.")
-                return
-
             if not source_object.controls_other(objs[0]):
                 if objs[0].is_superuser():
                     source_object.emit_to("You cannot boot a Wizard.")
@@ -229,8 +225,8 @@ def cmd_newpassword(command):
     if not target_obj:
         return
 
-    if not target_obj.is_player():
-        source_object.emit_to("You can only change passwords on players.")
+    if hasattr(target_obj, "set_password"):
+        source_object.emit_to("This type of object doesn't have a password that can be set this way.")
     elif not source_object.controls_other(target_obj):
         source_object.emit_to("You do not control %s." % (target_obj.get_name(),))
     else:
@@ -541,8 +537,8 @@ def cmd_setgroup(command):
     obj = source_object.search_for_object(obj_name)
     if not obj:
         return
-    if not obj.is_player():
-        source_object.emit_to("Only players may be members of permission groups.")
+    if not hasattr(obj, "owner"):
+        source_object.emit_to("Only objects with an owner may be members of permission groups.")
         return
     user = obj.get_user_account()
     if not user:

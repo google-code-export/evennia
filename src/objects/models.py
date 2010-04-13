@@ -11,7 +11,6 @@ except ImportError:
     import pickle
 
 from django.db import models
-from django.contrib.auth.models import User
 from django.conf import settings
 from src.objects.util import object as util_object
 from src.objects.managers.object import ObjectManager
@@ -26,6 +25,8 @@ from src import session_mgr
 
 from src.idmapper.models import SharedMemoryModel as DEFAULT_MODEL
 from src.idmapper.base import SharedMemoryModelBase as DEFAULT_MODEL_BASE
+
+from src.scripthandler import scriptlink
 
 # Import as the absolute path to avoid local variable clashes.
 import src.flags
@@ -227,25 +228,15 @@ class Primitive(DEFAULT_MODEL):
 	# nesting.
         scriptname = self.preferred_model
 	#full_script = "%s.%s" % (settings.SCRIPT_IMPORT_PATH, self.preferred_model)
-	script_module = ".".join(self.preferred_model.split('.')[0:-1])
-	script_name = self.preferred_model.split('.')[-1]
-	try:
-	    # Change the working directory to the location of the script and import.
-	    logger.log_infomsg("SCRIPT: Caching and importing %s." % (scriptname))
-	    module = __import__(script_module, fromlist=[script_name])
-            mdl = getattr(module, script_name)
-	    # Store the module reference for later fast retrieval.
-	    #CACHED_SCRIPTS[scriptname] = modreference
-	except ImportError:
-	    logger.log_infomsg('Error importing %s: %s' % (scriptname, format_exc()))
-	    #os.chdir(settings.BASE_PATH)
-	    return
-	except OSError:
-	    logger.log_infomsg('Invalid module path: %s' % (format_exc()))
-	    #os.chdir(settings.BASE_PATH)
-	    return
-        # uglyish, nonsaved objects might still not be the preferred model
-        # probably not in reality though
+        
+	#script_module = ".".join(self.preferred_model.split('.')[0:-1])
+	#script_name = self.preferred_model.split('.')[-1]
+	# Change the working directory to the location of the script and import.
+        
+	#module = __import__(script_module, fromlist=[script_name])
+        #mdl = getattr(module, script_name)
+        mdl = scriptlink(scriptname)
+
         if hasattr(mdl, "primitive_ptr") and self.id and self.preferred_model:
             try:
                 return mdl.objects.get(primitive_ptr=self.id)
@@ -269,18 +260,12 @@ class Object(Primitive):
     may be parented to allow for differing behaviors.
     """
     name = models.CharField(max_length=255)
-    ansi_name = models.CharField(max_length=255)
     owner = models.ForeignKey('self',
                               related_name="obj_owner",
                               blank=True, null=True)
-    zone = models.ForeignKey('self',
-                             related_name="obj_zone",
-                             blank=True, null=True)
     home = models.ForeignKey('self',
                              related_name="obj_home",
                              blank=True, null=True)
-    flags = models.TextField(blank=True, null=True)
-    nosave_flags = models.TextField(blank=True, null=True)
     date_created = models.DateField(editable=False,
                                     auto_now_add=True)
 
@@ -288,6 +273,14 @@ class Object(Primitive):
     # table to be used (not persistent).
     state = None
 
+    # the following is_ functions should be properties
+    def is_superuser(self):
+        if hasattr(self, "user"):
+           return self.user.is_superuser
+    def is_player(self):
+        if hasattr(self, "user"):
+           return True
+    
     class Meta:
         """
         Define permission types on the object class and
@@ -406,40 +399,8 @@ class Object(Primitive):
                 x.emit_to(message)
             
     def get_user_account(self):
-        """
-        Returns the player object's account object (User object).
-        """
-        try:
-            return User.objects.get(id=self.id)
-        except User.DoesNotExist:
-            logger.log_errmsg("No account match for object id: %s" % self.id)
-            return None
+        return None
     
-    def is_staff(self):
-        """
-        Returns True if the object is a staff player.
-        """
-        if not self.is_player():
-            return False        
-        try:
-            profile = self.get_user_account()
-            return profile.is_staff
-        except User.DoesNotExist:
-            return False
-
-    def is_superuser(self):
-        """
-        Returns True if the object is a super user player.
-        """
-        if not self.is_player():
-            return False
-        
-        try:
-            profile = self.get_user_account()
-            return profile.is_superuser
-        except User.DoesNotExist:
-            return False
-        
     def sees_dbrefs(self):
         """
         Returns True if the object sees dbrefs in messages. This is here
@@ -533,7 +494,7 @@ class Object(Primitive):
             
         if self.is_superuser():
             # Don't allow superusers to dominate other superusers.
-            if not other_obj.is_superuser():
+            if not other_obj.superuser():
                 return True
             else:
                 return False
@@ -1126,36 +1087,6 @@ class Object(Primitive):
 #    def is_garbage(self):
 #        return self.type == defines_global.OTYPE_GARBAGE
     
-    def get_type(self, return_number=False):
-        """
-        Returns the numerical or string representation of an object's type.
-        
-        return_number: (bool) True returns numeric type, False returns string.
-        """
-        if return_number:
-            return self.type
-        else:
-            return defines_global.OBJECT_TYPES[self.type][1]
-     
-    def is_type(self, otype):
-        """
-        See if an object is a certain type.
-        
-        otype: (str) A string representation of the object's type (ROOM, THING)
-        """
-        otype = otype[0]
-        
-        if otype == 'p':
-            return self.is_player()
-        elif otype == 'r':
-            return self.is_room()
-        elif otype == 't':
-            return self.is_thing()
-        elif otype == 'e':
-            return self.is_exit()
-        elif otype == 'g':
-            return self.is_garbage()
-
     # object custom commands
 
     def add_command(self, command_string, function,
@@ -1547,8 +1478,6 @@ class Object(Primitive):
 # Base MUD object types 
 #
 
-class Player(Object):
-    user = models.ForeignKey(User)
 class Exit(Object):
     destination = models.ForeignKey(Object, related_name="_destination")
     def matches(self, txt):

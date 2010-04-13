@@ -18,11 +18,13 @@ Note that if you create a test button you must drop it before you can
 see its messages!
 """
 import traceback
-from game.gamesrc.parents.base.basicobject import BasicObject
-from src.objects.models import Object
+from game.models import Object
 from src.events import IntervalEvent
 from src import scheduler
 from src import logger
+
+from django.db import models
+from django.contrib.auth.models import User
 
 
 #
@@ -31,7 +33,7 @@ from src import logger
 
 # Importing this will start the blink event ticking, only one
 # blink event is used for all red buttons.
-import game.gamesrc.events.example 
+#import game.gamesrc.events.example 
 
 # We also create an object-specific event.
 
@@ -140,7 +142,7 @@ def cmd_push_button(command):
 # Definition of the object itself
 #
     
-class RedButton(BasicObject):
+class RedButton(Object):
     """
     This class describes an evil red button.
     It will use the event definition in
@@ -149,24 +151,26 @@ class RedButton(BasicObject):
     breaks. It also use the EventCloselid event defined
     above to close the lid 
     """
+    class Meta:
+       abstract = True
+    pushed = models.BooleanField()
     def at_object_creation(self):
         """
         This function is called when object is created. Use this
         preferably over __init__.
         """        
         #get stored object related to this class
-        obj = self.scripted_obj
-        
-        obj.set_attribute('desc', "This is a big red button. It has a glass cover.")
-        obj.set_attribute("breakpoint", 5)
-        obj.set_attribute("count", 0)
+        #self.set_attribute('desc', "This is a big red button. It has a glass cover.")
+        #self.set_attribute("breakpoint", 5)
+        #self.set_attribute("count", 0)
 
         # add the object-based commands to the button
-        obj.add_command("open lid", cmd_open_lid)
-        obj.add_command("lift lid", cmd_open_lid)
-        obj.add_command("close lid", cmd_close_lid)        
-        obj.add_command("push button", cmd_push_button)
-        obj.add_command("push the button", cmd_push_button)
+        #self.add_command("open lid", cmd_open_lid)
+        #self.add_command("lift lid", cmd_open_lid)
+        #self.add_command("close lid", cmd_close_lid)        
+        #self.add_command("push button", cmd_push_button)
+        #self.add_command("push the button", cmd_push_button)
+        pass
         
     def open_lid(self):
         """
