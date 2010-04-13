@@ -144,9 +144,7 @@ class IMC2Packet(object):
             return self.sender.strip().replace(' ', '_')
         elif self.sender:            
             # Player object.
-            name = self.sender.get_name(fullname=False, show_dbref=False, 
-                                        show_flags=False,
-                                        no_ansi=True)
+            name = self.sender.name
             # IMC2 does not allow for spaces.
             return name.strip().replace(' ', '_')
         else:

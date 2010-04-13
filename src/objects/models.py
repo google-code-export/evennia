@@ -5,16 +5,10 @@ import re
 import traceback
 import time
 
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
-
 from django.db import models
 from django.conf import settings
 from src.objects.util import object as util_object
 from src.objects.managers.object import ObjectManager
-from src.objects.managers.attribute import AttributeManager
 from src.config.models import ConfigValue
 from src.ansi import ANSITable, parse_ansi
 from src import scripthandler
@@ -29,104 +23,12 @@ from src.idmapper.base import SharedMemoryModelBase as DEFAULT_MODEL_BASE
 from src.scripthandler import scriptlink
 
 # Import as the absolute path to avoid local variable clashes.
-import src.flags
 from src.util import functions_general
+from django.db.models import signals
 
 # temp debug function
 def dbg(*args):
     logger.log_errmsg(", ".join(map(str, args)))
-
-class Attribute(DEFAULT_MODEL):
-    """
-    Attributes are things that are specific to different types of objects. For
-    example, a drink container needs to store its fill level, whereas an exit
-    needs to store its open/closed/locked/unlocked state. These are done via
-    attributes, rather than making different classes for each object type and
-    storing them directly. The added benefit is that we can add/remove 
-    attributes on the fly as we like.
-    """
-    attr_name = models.CharField(max_length=255)
-    attr_value = models.TextField(blank=True, null=True)
-    attr_hidden = models.BooleanField(default=False)
-    attr_object = models.ForeignKey("Object")
-    attr_ispickled = models.BooleanField(default=False)
-    
-    objects = AttributeManager()
-    
-    def __str__(self):
-        return "%s(%s)" % (self.attr_name, self.id)
-            
-    #
-    # BEGIN COMMON METHODS
-    # 
-    def get_name(self):
-        """
-        Returns an attribute's name.
-        """
-        return self.attr_name
-        
-    def get_value(self):
-        """
-        Returns an attribute's value.
-        """        
-        attr_value = self.attr_value        
-        if self.attr_ispickled:
-            attr_value = pickle.loads(str(attr_value))
-        return attr_value
-
-    def set_value(self, new_value):
-        """
-        Sets an attributes value
-        """
-        if new_value == None:
-            self.delete()
-            return
-        #pickle everything but strings
-        if type(new_value) != type(str()):
-            new_value = pickle.dumps(new_value) #,pickle.HIGHEST_PROTOCOL)
-            ispickled = True
-        else:
-            new_value = new_value
-            ispickled = False
-        self.attr_value = new_value
-        self.attr_ispickled = ispickled
-        self.save()
-        
-    def get_object(self):
-        """
-        Returns the object that the attribute resides on.
-        """
-        return self.attr_object
-        
-    def is_hidden(self):
-        """
-        Returns True if the attribute is hidden.
-        """
-        if self.attr_hidden or self.get_name().upper() \
-               in defines_global.HIDDEN_ATTRIBS:
-            return True
-        else:
-            return False
-
-    def is_noset(self):
-        """
-        Returns True if the attribute is unsettable.
-        """
-        if self.get_name().upper() in defines_global.NOSET_ATTRIBS:
-            return True
-        else:
-            return False
-        
-    def get_attrline(self):
-        """
-        Best described as a __str__ method for in-game. Renders the attribute's
-        name and value as per MUX.
-        """
-        
-        return "%s%s%s: %s" % (ANSITable.ansi["hilite"], 
-                               self.get_name(),ANSITable.ansi["normal"],
-                               self.get_value())
-    value = property(fget=get_value,fset=set_value)
 
 class PrimitiveModelBase(DEFAULT_MODEL_BASE):
     def __call__(cls, *args, **kwargs):
@@ -251,6 +153,94 @@ class Primitive(DEFAULT_MODEL):
     def matches(self, txt):
         if txt.lower() == self.name.lower():
             return True
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+
+class PickledObject(str):
+    pass
+
+class PickledObjectField(models.Field):
+    __metaclass__ = models.SubfieldBase
+    
+    def to_python(self, value):
+        if isinstance(value, PickledObject):
+            # If the value is a definite pickle; and an error is raised in de-pickling
+            # it should be allowed to propogate.
+            return pickle.loads(str(value))
+        else:
+            try:
+                return pickle.loads(str(value))
+            except:
+                # If an error was raised, just return the plain value
+                return value
+    
+    def get_db_prep_save(self, value):
+        if value is not None and not isinstance(value, PickledObject):
+            value = PickledObject(pickle.dumps(value))
+        return value
+    
+    def get_internal_type(self): 
+        return 'TextField'
+    
+    def get_db_prep_lookup(self, lookup_type, value):
+        if lookup_type == 'exact':
+            value = self.get_db_prep_save(value)
+            return super(PickledObjectField, self).get_db_prep_lookup(lookup_type, value)
+        elif lookup_type == 'in':
+            value = [self.get_db_prep_save(v) for v in value]
+            return super(PickledObjectField, self).get_db_prep_lookup(lookup_type, value)
+        else:
+            raise TypeError('Lookup type %s is not supported.' % lookup_type)
+
+
+class Attribute(DEFAULT_MODEL):
+    primitive = models.ForeignKey(Primitive, related_name="_attributes")
+    name = models.CharField(max_length=255)
+    value = PickledObjectField()
+
+class AttributeField(object):
+    def __init__(self, default=None):
+        self.name = None
+        self.default = default
+    def post_save_listener(self, **kwargs):
+        instance = kwargs['instance']
+        if hasattr(instance, "primitive_ptr"):
+            primitive = instance.primitive_ptr
+        else:
+            primitive = instance
+        val = self.__get__(instance)
+        attr, created = Attribute.objects.get_or_create(primitive=primitive,name=self.name)[0]
+        if attr.value != val:
+           attr.value = val
+           attr.save()
+    def contribute_to_class(self, cls, name):
+        self.name = name
+        setattr(cls, name, self)
+        signals.post_save.connect(self.post_save_listener, sender=cls, weak=False, dispatch_uid="post_save_listener")
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return None
+        elif hasattr(instance, '_%s_cache' % self.name):
+               return getattr(instance, '_%s_cache' % self.name, None)
+        elif instance.id:
+            tval, created = Attribute.objects.get_or_create(primitive=instance,name=self.name)
+            if created:
+                val = self.default
+            else:
+                val = tval.value
+            self.__set__(instance, val)
+            return val
+        else:
+            return None
+    def __set__(self, instance, value):
+        if instance is None:
+            raise AttributeError(_('%s can only be set on instances.') % self.name)
+        else:
+            setattr(instance, '_%s_cache' % self.name, value)
+
+
 
 class Object(Primitive):
     """
@@ -259,6 +249,15 @@ class Object(Primitive):
     game is an object. Objects may be one of several different types, and
     may be parented to allow for differing behaviors.
     """
+    
+    class Meta(PrimitiveModelBase):
+        """
+        Define permission types on the object class and
+        how it is ordered in the database.
+        """
+        ordering = ['-date_created', 'id']
+        permissions = settings.PERM_OBJECTS
+
     name = models.CharField(max_length=255)
     owner = models.ForeignKey('self',
                               related_name="obj_owner",
@@ -281,13 +280,6 @@ class Object(Primitive):
         if hasattr(self, "user"):
            return True
     
-    class Meta:
-        """
-        Define permission types on the object class and
-        how it is ordered in the database.
-        """
-        ordering = ['-date_created', 'id']
-        permissions = settings.PERM_OBJECTS
     def __str__(self):
         return self.name
         
@@ -621,246 +613,6 @@ class Object(Primitive):
             # If home is still None, it goes to a null location.            
             obj.move_to(home)
 
-    def set_attribute(self, attribute, new_value=None):
-        """
-        Sets an attribute on an object. Creates the attribute if need
-        be.
-        
-        attribute: (str) The attribute's name.
-        new_value: (python obj) The value to set the attribute to. If this is not
-                                a str, the object will be stored as a pickle.  
-        """
-
-        if attribute == "__command_table__":
-            # protect the command table attribute,
-            # this is only settable by self.add_command()
-            return 
-
-        attrib_obj = None
-        if self.has_attribute(attribute):
-            attrib_obj = \
-              Attribute.objects.filter(attr_object=self).filter(attr_name__iexact=attribute)[0]
-
-        if new_value == None:
-            if attrib_obj:
-                attrib_obj.delete()
-            return
-                
-        if attrib_obj:                
-            # Save over the existing attribute's value.
-            attrib_obj.set_value(new_value)
-        else:
-            # Create a new attribute
-            new_attrib = Attribute()
-            new_attrib.attr_name = attribute
-            new_attrib.attr_object = self
-            new_attrib.attr_hidden = False
-            new_attrib.set_value(new_value)
-
-    def get_attribute_value(self, attrib, default=None):
-        """
-        Returns the value of an attribute on an object. You may need to
-        type cast the returned value from this function since the attribute
-        can be of any type.
-        
-        attrib: (str) The attribute's name.
-        """
-        if self.has_attribute(attrib):            
-            try:
-                attrib = Attribute.objects.filter(attr_object=self).filter(attr_name=attrib)[0]
-            except:
-                # safety, if something goes wrong (like unsynced db), catch it.
-                logger.log_errmsg(traceback.print_exc())
-                return default 
-            return attrib.get_value()
-        else:            
-            return default
-
-    def get_attribute(self, attrib, default=None):
-        """
-        Convenience function (to keep compatability). While
-        get_attribute_value() is a correct name, it is not really
-        consistent with set_attribute() anyway. 
-        """
-        return self.get_attribute_value(attrib, default)
-            
-    def get_attribute_obj(self, attrib, auto_create=False):
-        """
-        Returns the attribute object matching the specified name.
-        
-        attrib: (str) The attribute's name.
-        """
-        if self.has_attribute(attrib):
-            return Attribute.objects.filter(attr_object=self).filter(attr_name=attrib)[0]
-        else:
-            if auto_create:
-                new_attrib = Attribute()
-                new_attrib.attr_name = attrib
-                new_attrib.attr_object = self
-                new_attrib.attr_hidden = False
-                new_attrib.save()
-                return new_attrib
-            else:
-                return False
-    
-    def clear_attribute(self, attribute):
-        """
-        Removes an attribute entirely.
-        
-        attribute: (str) The attribute's name.
-        """
-        if self.has_attribute(attribute):
-            attrib_obj = self.get_attribute_obj(attribute)
-            attrib_obj.delete()
-            return True
-        else:
-            return False
-            
-
-    def get_all_attributes(self):
-        """
-        Returns a QuerySet of an object's attributes.
-        """
-        return [attr for attr in self.attribute_set.all()
-                if not attr.is_hidden()]
-    
-    def clear_all_attributes(self):
-        """
-        Clears all of an object's attributes.
-        """
-        attribs = self.get_all_attributes()
-        for attrib in attribs:
-            attrib.delete()
-
-
-    def has_attribute(self, attribute):
-        """
-        See if we have an attribute set on the object.
-        
-        attribute: (str) The attribute's name.
-        """
-        attr = Attribute.objects.filter(attr_object=self).filter(attr_name__iexact=attribute)
-        if attr.count() == 0:
-            return False
-        else:
-            return True
-            
-
-    def attribute_namesearch(self, searchstr, exclude_noset=False):
-        """
-        Searches the object's attributes for name matches against searchstr
-        via regular expressions. Returns a list.
-        
-        searchstr: (str) A string (maybe with wildcards) to search for.
-        """
-        # Retrieve the list of attributes for this object.
-        attrs = Attribute.objects.filter(attr_object=self)
-        # Compile a regular expression that is converted from the user's
-        # wild-carded search string.
-        match_exp = re.compile(functions_general.wildcard_to_regexp(searchstr), 
-                               re.IGNORECASE)
-        # If the regular expression search returns a match
-        # object, add to results.
-        if exclude_noset:
-            return [attr for attr in attrs if match_exp.search(attr.get_name())
-                    and not attr.is_hidden() and not attr.is_noset()]
-        else:
-            return [attr for attr in attrs if match_exp.search(attr.get_name())
-                    and not attr.is_hidden()]
-        
-
-    def has_flag(self, flag):
-        """
-        Does our object have a certain flag?
-        
-        flag: (str) Flag name
-        """
-        # For whatever reason, we have to do this so things work
-        # in SQLite.
-        flags = str(self.flags).split()
-        nosave_flags = str(self.nosave_flags).split()
-        return flag.upper() in flags or flag in nosave_flags
-        
-    def set_flag(self, flag, value=True):
-        """
-        Add a flag to our object's flag list.
-        
-        flag: (str) Flag name
-        value: (bool) Set (True) or un-set (False)
-        """
-        flag = flag.upper()
-        has_flag = self.has_flag(flag)
-        
-        if value == False and has_flag:
-            # Clear the flag.
-            if src.flags.is_unsavable_flag(flag):
-                # Not a savable flag (CONNECTED, etc)
-                flags = self.nosave_flags.split()
-                flags.remove(flag)
-                self.nosave_flags = ' '.join(flags)
-            else:
-                # Is a savable flag.
-                flags = self.flags.split()
-                flags.remove(flag)
-                self.flags = ' '.join(flags)
-            self.save()
-            
-        elif value == False and not has_flag:
-            # Object doesn't have the flag to begin with.
-            pass
-        elif value == True and has_flag:
-            # We've already got it.
-            pass
-        else:
-            # Setting a flag.
-            if src.flags.is_unsavable_flag(flag):
-                # Not a savable flag (CONNECTED, etc)
-                flags = str(self.nosave_flags).split()
-                flags.append(flag)
-                self.nosave_flags = ' '.join(flags)
-            else:
-                # Is a savable flag.
-                if self.flags is not None:
-                    flags = str(self.flags).split()
-                else:
-                    # This prevents conversion of None to strings
-                    flags = []
-
-                flags.append(flag)
-                self.flags = ' '.join(flags)
-            self.save()
-
-    def unset_flag(self, flag):
-        """
-        Clear the flag.
-        """
-        self.set_flag(flag, value=False)
-    
-    def get_flags(self):
-        """
-        Returns an object's flag list.
-        """
-        all_flags = []
-        if self.flags is not None:
-            # Add saved flags to the display list
-            all_flags = all_flags + self.flags.split()
-        if self.nosave_flags is not None:
-            # Add non-saved flags to the display list
-            all_flags = all_flags + self.nosave_flags.split()
-            
-        if not all_flags:
-            # Guard against returning 'None'
-            return ""
-        else:
-            # Format the Python list to a space separated string of flags
-            return " ".join(all_flags)
-
-    def clear_all_flags(self):
-        "Clears all the flags set on object."
-        flags = self.get_flags()
-        for flag in flags.split():
-            self.unset_flag(flag)
-
     def is_connected_plr(self):
         """
         Is this object a connected player?
@@ -970,9 +722,8 @@ class Object(Primitive):
         """
         # First, check if we can enter that location at all.
         if not target.enter_lock(self):
-            lock_desc = self.get_attribute_value("enter_lock_msg")
-            if lock_desc:
-                self.emit_to(lock_desc)
+            if self.enter_lock_msg:
+                self.emit_to(self.enter_lock_msg)
             else:
                 self.emit_to("That destination is blocked from you.")
             return
@@ -1119,9 +870,7 @@ class Object(Primitive):
         # we save using the attribute object to avoid
         # the protection on the __command_table__ keyword
         # in set_attribute_value()
-        attrib_obj = self.get_attribute_obj("__command_table__",
-                                            auto_create=True)        
-        cmdtable = attrib_obj.get_value()        
+        cmdtable = self.__command_table__
         if not cmdtable:
             # create new table if we didn't have one before
             from src.cmdtable import CommandTable 
@@ -1132,7 +881,7 @@ class Object(Primitive):
                              help_category, priv_help_tuple,
                              auto_help_override)
         # store the cmdtable again
-        attrib_obj.set_value(cmdtable)
+        self.__cmd_table__ = cmdtable
             
     def get_cmdtable(self):
         """
@@ -1168,7 +917,7 @@ class Object(Primitive):
             # permission. Instead we expect them to set the flag
             # ADMIN_NOSTATE on themselves if they don't want to
             # enter states. 
-            nostate = self.has_flag("admin_nostate")
+            nostate = self.admin_nostate
         else:
             # for other users we request the permission as normal. 
             nostate = self.has_perm("genperms.admin_nostate")
@@ -1198,7 +947,6 @@ class Object(Primitive):
     def purge_object(self):
         "Completely clears all aspects of the object."
         self.clear_all_attributes()
-        self.clear_all_flags()
         self.clear_state()
         self.home = None 
         self.owner = None 
@@ -1208,7 +956,7 @@ class Object(Primitive):
     def at_object_creation(self):
         """
         This is triggered after a new object is created and ready to go. If
-        you'd like to set attributes, flags, or do anything when the object
+        you'd like to set attributes, or do anything when the object
         is created, do it here and not in __init__().
         """
         x = super(Object, self).at_object_creation()
@@ -1325,7 +1073,7 @@ class Object(Primitive):
         if pobject:        
             #check visibility lock
             if not target_obj.visible_lock(pobject):
-                temp = target_obj.get_attribute_value("visible_lock_msg")
+                temp = target_obj.visible_lock_msg
                 if temp:
                     return temp
                 return "I don't see that here."
@@ -1337,17 +1085,17 @@ class Object(Primitive):
             if False:
 		if target_obj.is_room() and \
 		       not target_obj.default_lock(pobject):
-		    temp = target_obj.get_attribute_value("lock_msg")
+		    temp = target_obj.lock_msg
 		    if temp:
 			lock_msg = "\n%s" % temp
         else:
             show_dbrefs = False
                         
-        description = target_obj.get_attribute_value('desc')
+        description = target_obj.desc
         if description is not None:
             retval = "%s%s\r\n%s%s%s" % ("%ch",
                 target_obj.name,
-                target_obj.get_attribute_value('desc'), lock_msg,
+                target_obj.desc, lock_msg,
                 "%cn")
         else:
             retval = "%s%s%s" % ("%ch",
@@ -1370,7 +1118,7 @@ class Object(Primitive):
         values:
             * pobject: (Object) The object requesting the action.
         """
-        locks = self.get_attribute_value("LOCKS")
+        locks = self.LOCKS
         if locks: 
             return locks.check("DefaultLock", pobject)
         else:
@@ -1385,7 +1133,7 @@ class Object(Primitive):
         values:
             * pobject: (Object) The object requesting the action.
         """
-        locks = self.get_attribute_value("LOCKS")
+        locks = self.LOCKS
         if locks: 
             return locks.check("UseLock", pobject)
         else:
@@ -1400,7 +1148,7 @@ class Object(Primitive):
         values:
             * pobject: (Object) The object requesting the action.
         """
-        locks = self.get_attribute_value("LOCKS")
+        locks = self.LOCKS
         if locks: 
             return locks.check("EnterLock", pobject)
         else:
@@ -1415,7 +1163,7 @@ class Object(Primitive):
         values:
             * pobject: (Object) The object requesting the action.
         """
-        locks = self.get_attribute_value("LOCKS")
+        locks = self.LOCKS
         if locks: 
             return locks.check("VisibleLock", pobject)
         else:
@@ -1441,9 +1189,9 @@ class Object(Primitive):
         
         # Load the player's channels from their JSON __CHANLIST attribute.
         comsys.load_object_channels(self)
-        self.set_attribute("Last", "%s" % (time.strftime("%a %b %d %H:%M:%S %Y", time.localtime()),))
-        self.set_attribute("Lastsite", "%s" % (session.address[0],))
-        self.set_flag("CONNECTED", True)
+        self.Last = "%s" % (time.strftime("%a %b %d %H:%M:%S %Y", time.localtime()),)
+        self.Lastsite = "%s" % (session.address[0],)
+        self.CONNECTED = True
 
     def at_first_login(self):
         """

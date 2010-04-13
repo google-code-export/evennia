@@ -25,7 +25,7 @@ def create_objects():
     """
     # Limbo is the initial starting room.
     limbo_obj = Object.objects.create(name = '%ch%ccLimbo%cn')
-    limbo_obj.set_attribute('desc',"Welcome to your new %chEvennia%cn-based game. From here you are ready to begin development. If you should need help or would like to participate in community discussions, visit http://evennia.com.")
+    limbo_obj.desc = "Welcome to your new %chEvennia%cn-based game. From here you are ready to begin development. If you should need help or would like to participate in community discussions, visit http://evennia.com."
     limbo_obj.save()
     ConfigValue(conf_key="default_home", conf_value=limbo_obj.id).save()
     ConfigValue(conf_key="player_dbnum_start", conf_value=limbo_obj.id).save()
@@ -34,7 +34,7 @@ def create_objects():
     god_user, _ = User.objects.get_or_create(is_superuser=True, is_staff=True)
     # Create the matching PLAYER object in the object DB.
     god_user_obj = Player.objects.create(name=god_user.username,user=god_user)
-    god_user_obj.set_attribute('desc', 'You are the first player.')
+    god_user_obj.desc = "You are the first player."
     god_user_obj.location = limbo_obj
     god_user_obj.set_home(limbo_obj)
     god_user_obj.save()

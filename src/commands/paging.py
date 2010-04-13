@@ -9,7 +9,7 @@ def get_last_paged_objects(source_object):
     Returns a list of objects of the user's last paged list, or None if invalid
     or non-existant.
     """
-    last_paged_dbrefs = source_object.get_attribute_value("LASTPAGED", None)
+    last_paged_dbrefs = source_object.LASTPAGED
     if last_paged_dbrefs:
         last_paged_objects = list()
         try:
@@ -131,6 +131,6 @@ def cmd_page(command):
                                                     message))
         
         # Now set the LASTPAGED attribute
-        source_object.set_attribute("LASTPAGED", ','.join(
-                ["#%d" % (x.id) for x in targets]))
+        source_object.LASTPAGED = ','.join(
+                ["#%d" % (x.id) for x in targets])
 GLOBAL_CMD_TABLE.add_command("page", cmd_page, priv_tuple=('channels.page',), help_category="Comms")

@@ -330,7 +330,7 @@ def match_exits(command,test=False):
         if targ_exit.get_home():                   
             # SCRIPT: See if the player can traverse the exit
             if not targ_exit.default_lock(source_object):
-                lock_msg = targ_exit.get_attribute_value("lock_msg")
+                lock_msg = targ_exit.lock_msg
                 if lock_msg:
                     source_object.emit_to(lock_msg)
                 else:                    
@@ -386,7 +386,7 @@ def command_table_lookup(command, command_table, eval_perms=True,
         # Check uselocks
         if neighbor and not neighbor.use_lock(command.source_object):
             # send an locked error message only if lock_desc is defined
-            lock_msg = neighbor.get_attribute_value("use_lock_msg")
+            lock_msg = neighbor.use_lock_msg
             if lock_msg:
                 command.source_object.emit_to(lock_msg)
                 raise ExitCommandHandler

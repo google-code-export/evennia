@@ -106,28 +106,6 @@ class PermKey(Key):
         return self._result(len([p for p in self.criteria
                                  if obj.has_perm(p)]))
 
-class FlagKey(Key):
-    """
-    This key use a set of object flags to define access.
-    Only if the trying object has the correct flags will
-    it pass the lock. 
-    self.criterion holds the flag names
-    """
-    def __str__(self):
-        string = " "
-        if not self.criteria:
-            string += " <Impassable>"
-        for crit in self.criteria:
-            string += " obj.%s," % str(crit).upper()
-        return string[:-1].strip()
-    
-    def check(self, obj):
-        "Checks object against the key."
-        if self.impassable:
-            return self.invert_result
-        return self._result(len([f for f in self.criteria
-                                 if obj.has_flag(f)]))
-                
 class AttrKey(Key):
     """
     This key use a list of arbitrary attributes to define access.
@@ -152,7 +130,7 @@ class AttrKey(Key):
 
         return self._result(len([tup for tup in self.criteria
                                  if len(tup)>1 and
-                                 obj.get_attribute_value(tup[0]) == tup[1]]))
+                                 getattr(obj, tup[0]) == tup[1]]))
 
 class FuncKey(Key):
     """

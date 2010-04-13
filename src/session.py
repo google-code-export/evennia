@@ -115,7 +115,7 @@ class SessionProtocol(StatefulTelnetProtocol):
             #call hook function
             self.puppet.at_disconnect()
 
-            self.puppet.set_flag("CONNECTED", False)
+            self.CONNECTED = False
                         
             self.user.last_login = datetime.now()
             self.user.save()

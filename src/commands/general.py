@@ -242,7 +242,7 @@ def cmd_inventory(command):
     for item in source_object.contents:
         source_object.emit_to(" %s" % (item.name,))
         
-    money = int(source_object.get_attribute_value("MONEY", default=0))
+    money = int(source_object.MONEY)
     if money == 1:
         money_name = ConfigValue.objects.get_configvalue("MONEY_NAME_SINGULAR")
     else:
@@ -317,7 +317,7 @@ def cmd_get(command):
         return
 
     if not target_obj.default_lock(source_object):
-        lock_msg = target_obj.get_attribute_value("lock_msg")
+        lock_msg = target_obj.lock_msg
         if lock_msg:
             source_object.emit_to(lock_msg)
         else:
@@ -421,7 +421,7 @@ def cmd_who(command):
 
         if show_session_data:
             retval += '%-31s%9s %4s%-3s#%-6d%5d%3s%-25s\r\n' % \
-                (plr_pobject.get_name(show_dbref=True, show_flags=False)[:25], \
+                (plr_pobject.name[:25], \
                 # On-time
                 functions_general.time_format(delta_conn,0), \
                 # Idle time
