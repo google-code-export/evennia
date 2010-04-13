@@ -9,7 +9,6 @@ import time
 from django.contrib.auth.models import User, Group, Permission
 from django.core import management
 from django.conf import settings
-from src.objects.models import Object
 from src.config.models import ConfigValue, CommandAlias, ConnectScreen
 from src import comsys, defines_global, logger
 from src.helpsys import helpsystem
@@ -17,7 +16,7 @@ from src import session_mgr
 from src import scheduler
 from src import events
 from src import gametime
-from src.objects.models import Player
+from game.models import Player, Object
 # Main module methods
 
 def create_objects():

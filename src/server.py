@@ -29,10 +29,6 @@ class EvenniaService(service.Service):
         if settings.DATABASE_ENGINE == "sqlite3":
             self.sqlite3_prep()
 
-        # Wipe our temporary flags on all of the objects.
-        cursor = connection.cursor()
-        cursor.execute("UPDATE objects_object SET nosave_flags=''")
-
         # Begin startup debug output.
         print '-'*50
 

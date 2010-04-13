@@ -22,7 +22,7 @@ def rebuild_cache():
     for key, val in cache_dict:
         rebuild(val)
 
-def scriptlink(source_obj, scriptname):
+def scriptlink(scriptname):
     """
     Each Object will refer to this function when trying to execute a function
     contained within a scripted module. For the sake of ease of management,
@@ -32,13 +32,12 @@ def scriptlink(source_obj, scriptname):
     Returns a reference to an instance of the script's class as per it's
     class_factory() method.
     
-    source_obj: (Object) A reference to the object being scripted.
     scriptname: (str) Name of the module to load (minus 'scripts').
     """
     # The module is already cached, just return it rather than re-load.
     retval = CACHED_SCRIPTS.get(scriptname, False)
     if retval:
-        return retval.class_factory(source_obj)
+        return retval
 
     """
     NOTE: Only go past here when the script isn't already cached.
@@ -48,15 +47,18 @@ def scriptlink(source_obj, scriptname):
     # to change to. I really wish we didn't have to do this, but there's some
     # strange issue with __import__ and more than two directories worth of
     # nesting.
-    full_script = "%s.%s" % (settings.SCRIPT_IMPORT_PATH, scriptname)
-    script_name = full_script.split('.')[-1]
+    #full_script = "%s.%s" % (settings.SCRIPT_IMPORT_PATH, scriptname)
+    full_script = scriptname
+    script_name = str(full_script.split('.')[-1])
+    script_module = ".".join(full_script.split('.')[0:-1])
 
     try:
         # Change the working directory to the location of the script and import.
         logger.log_infomsg("SCRIPT: Caching and importing %s." % (scriptname))
-        modreference = __import__(full_script, fromlist=[script_name])
+        modreference = __import__(script_module, fromlist=[script_name])
+        mdl = getattr(modreference, script_name)
         # Store the module reference for later fast retrieval.
-        CACHED_SCRIPTS[scriptname] = modreference
+        CACHED_SCRIPTS[scriptname] = mdl
     except ImportError:
         logger.log_infomsg('Error importing %s: %s' % (scriptname, format_exc()))
         os.chdir(settings.BASE_PATH)
@@ -67,4 +69,4 @@ def scriptlink(source_obj, scriptname):
         return
 
     # The new script module has been cached, return the reference.
-    return modreference.class_factory(source_obj)
+    return mdl

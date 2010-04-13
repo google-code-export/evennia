@@ -38,16 +38,9 @@ def display_results(source_object, search_query):
     room_list = []
     exit_list = []
     player_list = []
-    
+    # this bits gotta get totally redone 
     for obj in search_query:
-        if obj.is_thing():
-            thing_list.append(obj)
-        elif obj.is_room():
-            room_list.append(obj)
-        elif obj.is_exit():
-            exit_list.append(obj)
-        elif obj.is_player():
-            player_list.append(obj)
+        thing_list.append(obj)
 
     # Render each section for different object types
     if thing_list:

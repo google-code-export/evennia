@@ -3,11 +3,13 @@ Commands that are available from the connect screen.
 """
 import traceback
 from django.contrib.auth.models import User
-from src.objects.models import Object, Primitive, Player, ConfigValue
+from src.objects.models import Primitive, ConfigValue
 from src import defines_global
 from src.util import functions_general
 from src.cmdtable import GLOBAL_UNCON_CMD_TABLE
 from src.logger import log_errmsg
+from game.models import Player as PLAYER
+
 
 def cmd_connect(command):
     """
@@ -45,11 +47,11 @@ def cmd_connect(command):
     if not user.check_password(password):
         session.msg("Incorrect password.")
     else:
-        potential_puppets = Player.objects.filter(user=user)
+        potential_puppets = PLAYER.objects.filter(user=user)
         if potential_puppets:
             puppet = potential_puppets[0]
         else:
-            puppet = Player.objects.create(user=user,name=user.username)
+            puppet = PLAYER.objects.create(user=user,name=user.username)
             player_start_loc_id = ConfigValue.objects.get_configvalue('player_dbnum_start')
             player_start = Primitive.objects.get(id=player_start_loc_id).preferred_object
             puppet.location = player_start
@@ -103,9 +105,8 @@ def cmd_create(command):
     email_matches = User.objects.filter(email__iexact=email)
     # Look for any objects with an 'Alias' attribute that matches
     # the requested username
-    alias_matches = Player.objects.filter(attribute__attr_name__exact="ALIAS", 
+    alias_matches = PLAYER.objects.filter(attribute__attr_name__exact="ALIAS", 
             attribute__attr_value__iexact=uname).filter()
-    
     if not account.count() == 0 or not alias_matches.count() == 0:
         session.msg("Sorry, there is already a player with that name.")
     elif not email_matches.count() == 0:
@@ -117,6 +118,7 @@ def cmd_create(command):
             new_user = User.objects.create(username=uname, email=email)
             new_user.set_password(password)
             new_user.save()
+            session.msg("Account created. You may now log in using the connect command.")
         except:
             # we have to handle traceback ourself at this point, if we don't errors will givo no feedback.  
             session.msg("This is a bug. Please e-mail an admin if the problem persists.\n%s" % traceback.format_exc())

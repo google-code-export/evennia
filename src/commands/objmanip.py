@@ -10,6 +10,7 @@ from src import ansi
 from src.cmdtable import GLOBAL_CMD_TABLE
 from src import defines_global
 from src.ansi import ANSITable
+from src.scripthandler import scriptlink
 
 def cmd_teleport(command):
     """
@@ -48,8 +49,8 @@ def cmd_teleport(command):
         # Use search_for_object to handle duplicate/nonexistant results.
         if not victim:
             return
-        if victim.is_room():
-            source_object.emit_to("You can't teleport a room.")
+        if victim.location:
+            source_object.emit_to("You can't teleport an object that exists outside any location.")
             return
         destination = source_object.search_for_object_global(eq_args[1].strip(),
                                                              exact_match=True,
@@ -519,18 +520,13 @@ def cmd_create(command):
     script_parent = None
     if len(eq_args) > 1:
         script_parent = eq_args[1].strip()
-            
+        mdl = scriptlink(script_parent)
+    else:
+        mdl =  Object
     # Create and set the object up.
-    new_object = Object(name=target_name, location=source_object)
-    if script_parent:
-        if new_object == script_parent:        
-            source_object.emit_to("You create %s as a child of %s." %
-                                  (new_object, script_parent))
-        else:                
-            source_object.emit_to("'%s' is not a valid parent. Using default." %
-                                  script_parent)
-    else:        
-        source_object.emit_to("You create a new thing: %s" % (new_object,))
+    new_prim = mdl.objects.create(name=target_name, location=source_object, preferred_model=script_parent)
+    new_object = new_prim.preferred_object
+    source_object.emit_to("You create a new %s: %s" % (type(new_object), new_object))
 
     if "drop" in command.command_switches:
         new_object.move_to(source_object.get_location(),quiet=True)
@@ -883,7 +879,6 @@ def cmd_link(command):
     obj = source_object.search_for_object(obj_name)    
     if not obj:
         return
-    otype = obj.get_type()
     
     if not dest_name:
         # We haven't provided a target.
@@ -897,17 +892,17 @@ def cmd_link(command):
             if oldhome:
                 ohome_text = " (was %s)" % oldhome
             obj.set_home(None)            
-            if otype == "EXIT":
+            if hasattr(obj, "destination"):
                 source_object.emit_to("You have unlinked %s%s." % (obj,ohome_text))
             else:
                 source_object.emit_to("You removed %s's home setting%s." % (obj,ohome_text))
             return
         else:
             # the command looks like '@link obj', we just inspect the object.
-            if otype == "EXIT":
-                source_object.emit_to("%s currently links to %s." % (obj.get_name(), obj.get_home()))
+            if hasattr(obj, "destination"):
+                source_object.emit_to("%s currently links to %s." % (obj.name, obj.get_home()))
             else:
-                source_object.emit_to("%s's current home is %s." % (obj.get_name(), obj.get_home()))
+                source_object.emit_to("%s's current home is %s." % (obj.name, obj.get_home()))
             return 
     else:
         # we have a destination, search for it globally. 
@@ -1516,7 +1511,7 @@ def cmd_lock(command):
             for key in keys:
                 kstring += " %s," % key 
             kstring = kstring[:-1]
-            source_object.emit_to("Added lock '%s' to %s with keys%s." % (ltype, obj.get_name(), kstring))
+            source_object.emit_to("Added lock '%s' to %s with keys%s." % (ltype, obj.name, kstring))
 
         obj.set_attribute("LOCKS",obj_locks)
 GLOBAL_CMD_TABLE.add_command("@lock", cmd_lock, priv_tuple=("objects.create",), help_category="Building")
@@ -1590,8 +1585,8 @@ def cmd_examine(command):
         newl = "\r\n"
         # Format the examine header area with general flag/type info.
         
-        string += str(target_obj.get_name(fullname=True)) + newl
-        string += str("Type: %s Flags: %s" % (target_obj.get_type(), 
+        string += str(target_obj.name) + newl
+        string += str("Type: %s Flags: %s" % (type(target_obj), 
                                          target_obj.get_flags())) + newl        
         string += str("Owner: %s " % target_obj.get_owner()) + newl
         string += str("Zone: %s" % target_obj.get_zone()) + newl
@@ -1619,21 +1614,13 @@ def cmd_examine(command):
                 con_things.append(obj)
         
         # Render the object's home or destination (for exits).
-        if not target_obj.is_room():
-            if target_obj.is_exit():
-                # The Home attribute on an exit is really its destination.
-                string += str("Destination: %s" % target_obj.get_home()) + newl
-            else:
-                # For everything else, home is home.
-                string += str("Home: %s" % target_obj.get_home()) + newl
-            # This obviously isn't valid for rooms.    
-            string += str("Location: %s" % target_obj.get_location()) + newl
+	# TODO
 
         # Render other attributes
         cmd_string = ""
         attr_string = ""
         for attribute in target_obj.get_all_attributes():            
-            if attribute.get_name() == "__command_table__":
+            if attribute.attr_name == "__command_table__":
                 cmdtable = attribute.get_value()
                 cmd_string = "Commands: "
                 cmd_string += ", ".join(cmdtable.ctable.keys()) + newl                
@@ -1646,21 +1633,41 @@ def cmd_examine(command):
             string += str("%sContents:%s" % (ANSITable.ansi["hilite"], 
                                         ANSITable.ansi["normal"]))
             for player in con_players:
-                string += str(' %s' % newl + player.get_name(fullname=True))
+                string += str(' %s' % newl + player.name)
             for thing in con_things:
-                string += str(' %s' % newl + thing.get_name(fullname=True))
+                string += str(' %s' % newl + thing.name)
                 
         # Render Exists display.
         if con_exits:
             string += str("%sExits:%s" % (newl + ANSITable.ansi["hilite"], 
                                      ANSITable.ansi["normal"]))
             for exit in con_exits:
-                string += str(' %s' % newl + exit.get_name(fullname=True))
+                string += str(' %s' % newl + exit.name)
 
         # Send it all
         source_object.emit_to(string)
             
 GLOBAL_CMD_TABLE.add_command("examine", cmd_examine, priv_tuple=("objects.info",))
 
+def cmd_reload(command):
+        cache = AppCache()
+        for app in cache.get_apps():
+            __import__(app.__name__)
+            reload(app)
+        cache.app_store = SortedDict()
+        cache.app_models = SortedDict()
+        cache.app_errors = {}
+        cache.handled = {}
+        cache.loaded = False
+        #clean_modules_cache()
+        self.msg("Cleaned django module cache.")
+        modified = reimport.modified()
+        if modified:
+            self.msg("Reloading modified modules: %s" % modified)
+            reimport.reimport(*reimport.modified())
+        else:
+            self.msg("Nothing new to import.")
+        self.msg("Reloaded modules.")
 
+GLOBAL_CMD_TABLE.add_command("reload", cmd_examine, priv_tuple=("objects.info",))
 
