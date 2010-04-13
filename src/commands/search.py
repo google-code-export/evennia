@@ -46,22 +46,22 @@ def display_results(source_object, search_query):
     if thing_list:
         source_object.emit_to("\n\rTHINGS:")
         for thing in thing_list:
-            source_object.emit_to(thing.get_name(show_dbref=True, show_flags=True))
+            source_object.emit_to(thing.name)
             
     if exit_list:
         source_object.emit_to("\n\rEXITS:")
         for exit in exit_list:
-            source_object.emit_to(exit.get_name(show_dbref=True, show_flags=True))
+            source_object.emit_to(exit.name)
             
     if room_list:
         source_object.emit_to("\n\rROOMS:")
         for room in room_list:
-            source_object.emit_to(room.get_name(show_dbref=True, show_flags=True))
+            source_object.emit_to(room.name)
             
     if player_list:
         source_object.emit_to("\n\rPLAYER:")
         for player in player_list:
-            source_object.emit_to(player.get_name(show_dbref=True, show_flags=True))
+            source_object.emit_to(player.name)
             
     # Show the total counts by type
     source_object.emit_to("\n\rFound:  Rooms...%d  Exits...%d  Things...%d  Players...%d" % (

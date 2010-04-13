@@ -103,11 +103,12 @@ def cmd_create(command):
     account = User.objects.filter(username=uname)
     # Match an email address to an account.
     email_matches = User.objects.filter(email__iexact=email)
+    # TODO - redo alias system
     # Look for any objects with an 'Alias' attribute that matches
     # the requested username
-    alias_matches = PLAYER.objects.filter(attribute__attr_name__exact="ALIAS", 
-            attribute__attr_value__iexact=uname).filter()
-    if not account.count() == 0 or not alias_matches.count() == 0:
+    #alias_matches = PLAYER.objects.filter(attribute__attr_name__exact="ALIAS", 
+    #        attribute__attr_value__iexact=uname).filter()
+    if not account.count() == 0:# or not alias_matches.count() == 0:
         session.msg("Sorry, there is already a player with that name.")
     elif not email_matches.count() == 0:
         session.msg("Sorry, there is already a player with that email address.")

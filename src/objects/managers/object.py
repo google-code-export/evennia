@@ -32,7 +32,8 @@ class ObjectManager(models.Manager):
         """
         Returns the a QuerySet containing the currently connected players.
         """
-        return self.filter(nosave_flags__contains="CONNECTED")
+        # TODO gotta hit up the session manager for this
+        return False
 
     def get_recently_created_users(self, days=7):
         """
@@ -238,7 +239,7 @@ class ObjectManager(models.Manager):
             #fuzzy matching; run second sweep to catch exact matches
             if attribute_name:
                 exact_results = [prospect for prospect in results
-                                 if ostring == prospect.get_attribute_value(attribute_name)]
+                                 if ostring == getattr(prospect, attribute_name)]
             else:
                 exact_results = [prospect for prospect in results
                                  if prospect.name_match(ostring, match_type="exact")]
@@ -265,18 +266,18 @@ class ObjectManager(models.Manager):
                 if match_type == "exact":
                     return [prospect for prospect in searchlist
                             if prospect.type in limit_types and 
-                            ostring == prospect.get_attribute_value(attribute_name)]
+                            ostring == getattr(prospect, attribute_name)]
                 else:
                     return [prospect for prospect in searchlist
                             if prospect.type in limit_types and 
-                            ostring in str(prospect.get_attribute_value(attribute_name))]
+                            ostring in str(getattr(prospect, attribute_name))]
             else:
                 if match_type == "exact":
                     return [prospect for prospect in searchlist
-                            if ostring == str(prospect.get_attribute_value(attribute_name))]
+                            if ostring == str(getattr(prospect, attribute_name))]
                 else:                    
                     return [prospect for prospect in searchlist
-                            if ostring in str(prospect.get_attribute_value(attribute_name))]
+                            if ostring in str(getattr(prospect, attribute_name))]
         else:
             #search the default "name" attribute
             if limit_types:

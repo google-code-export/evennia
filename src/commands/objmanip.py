@@ -4,7 +4,6 @@ These commands typically are to do with building or modifying Objects.
 from django.contrib.auth.models import Permission, Group
 from src.objects.models import Object, Attribute
 # We'll import this as the full path to avoid local variable clashes.
-import src.flags
 from src import locks
 from src import ansi
 from src.cmdtable import GLOBAL_CMD_TABLE
@@ -116,13 +115,13 @@ def cmd_alias(command):
         source_object.emit_to("Aliases must be alphanumeric.")
         return
   
-    old_alias = target.get_attribute_value('ALIAS', default='')
+    old_alias = target.ALIAS
     #print "ALIAS", old_alias
     duplicates = Object.objects.player_alias_search(source_object, new_alias)
     if not duplicates or old_alias.lower() == new_alias.lower():
         # Either no duplicates or just changing the case of existing alias.
         if source_object.controls_other(target):
-            target.set_attribute('ALIAS', new_alias)
+            target.ALIAS = new_alias
             source_object.emit_to("Alias '%s' set for %s." % (new_alias, 
                                                     target.get_name()))
         else:
@@ -198,21 +197,19 @@ GLOBAL_CMD_TABLE.add_command("@wipe", cmd_wipe,priv_tuple=("objects.wipe",),
 
 def cmd_set(command):
     """
-    @set - set attributes and flags
+    @set - set attributes
 
     Usage:
-      @set <obj> = <flag>
       @set <obj> = <attr> : <value>
-      @set <obj> = !<flag>
       @set <obj> = <attr> : 
     
-    Sets flags or attributes on objects. The two last forms
-    above unsets the flag and clears the attribute, respectively.
+    Sets attributes on objects. The last form
+    above unsets the attribute and clears the attribute, respectively.
     """
     source_object = command.source_object    
     args = command.command_argument
     if not args:        
-        source_object.emit_to("Usage: @set obj=attr:value or @set obj=flag. Use empty value or !flag to clear.")
+        source_object.emit_to("Usage: @set obj=attr:value. Use empty value to clear.")
         return
     
     # Break into target and value by the equal sign.
@@ -252,7 +249,7 @@ def cmd_set(command):
             return
         if attrib_value:
             # An attribute value was specified, create or set the attribute.            
-            target.set_attribute(attrib_name, attrib_value)
+            setattr(target, attrib_name, attrib_value)
             s = "Attribute %s=%s set to '%s'" % (target_name, attrib_name, attrib_value)
         else:
             # No value was given, this means we delete the attribute.
@@ -260,38 +257,9 @@ def cmd_set(command):
             if ok:
                 s = 'Attribute %s=%s deleted.' % (target_name,attrib_name)
             else:
-                s = "Attribute %s=%s not found, so not cleared. \nIf it is a flag, use '@set %s:!%s' to clear it." % \
+                s = "Attribute %s=%s not found, so not cleared." % \
                 (target_name, attrib_name, target_name, attrib_name)
         source_object.emit_to(s)
-    else:
-        # Flag manipulation form.
-        flag_list = eq_args[1].split()
-        s = ""
-        for flag in flag_list:
-            flag = flag.upper().strip()
-            if flag[0] == '!':
-                # We're un-setting the flag.
-                flag = flag[1:]
-                if not src.flags.is_modifiable_flag(flag):
-                    s += "\nYou can't set/unset the flag %s." % flag
-                    continue
-                if not target.has_flag(flag):
-                    s += "\nFlag %s=%s already cleared." % (target_name,flag)
-                    continue
-                s += "\nFlag %s=%s cleared." % (target_name, flag.upper())
-                target.unset_flag(flag)
-            else:
-                # We're setting the flag.
-                if not src.flags.is_modifiable_flag(flag):
-                    s += "\nYou can't set/unset the flag %s." % flag
-                    continue
-                if target.has_flag(flag):
-                    s += "\nFlag %s=%s already set." % (target_name, flag)
-                    continue
-                else:
-                    s += '\nFlag %s=%s set.' % (target_name, flag.upper())
-                target.set_flag(flag, True)
-        source_object.emit_to(s[1:])
 GLOBAL_CMD_TABLE.add_command("@set", cmd_set, priv_tuple=("objects.modify_attributes",),
                              help_category="Building")
 
@@ -340,7 +308,7 @@ def cmd_cpattr(command):
     if not from_obj:
         source_object.emit_to("Source object not found.")
         return
-    from_value = from_obj.get_attribute_value(from_attr)
+    from_value = from_obj.from_attr
     if from_value==None:
         source_object.emit_to("Attribute %s=%s not found." % \
                               (from_objname,from_attr))
@@ -379,7 +347,7 @@ def cmd_cpattr(command):
             s += "\nCan not copy to %s=%s (cannot be modified)" % (to_objname,
                                                                    to_attr)
             continue 
-        to_obj.set_attribute(to_attr, from_value)
+        setattr(to_obj, to_attr, from_value)
         s += "\nCopied %s=%s -> %s=%s" % (from_objname,from_attr,
                                           to_objname, to_attr)
     source_object.emit_to(s)
@@ -414,7 +382,7 @@ def cmd_mvattr(command):
         source_object.emit_to("Object '%s' not found." % objname)
         return
     #check so old attribute exists.
-    value = target_obj.get_attribute_value(oldattr)
+    value = target_obj.oldattr
     if value == None:
         source_object.emit_to("Attribute '%s' does not exist." % oldattr)
         return 
@@ -437,7 +405,7 @@ def cmd_mvattr(command):
             s += "\nKept '%s' (moved into itself)" % attr
             delete_original = False
             continue
-        target_obj.set_attribute(attr, value)
+        setattr(target_obj, attr, value)
         s += "\nCopied %s -> %s" % (oldattr,attr)
     #if we can, delete the old attribute
     if not Attribute.objects.is_modifiable_attrib(oldattr):
@@ -602,7 +570,7 @@ def cmd_copy(command):
         loc_text = " in %s" % new_location_name
     reset_text = ""
     if reset:
-        reset_text = " (using default attrs/flags)"
+        reset_text = " (using default attrs)"
     source_object.emit_to("Copied object '%s'%s%s%s." % (objname,name_text,loc_text,reset_text))
 GLOBAL_CMD_TABLE.add_command("@copy", cmd_copy,
                              priv_tuple=("objects.create",), help_category="Building")
@@ -1168,10 +1136,10 @@ def cmd_description(command):
     
     if not new_desc:
         source_object.emit_to("%s - description cleared." % target_obj)
-        target_obj.set_attribute('desc', 'Nothing special.')
+        target_obj.desc = 'Nothing special.'
     else:
         source_object.emit_to("%s - description set." % target_obj)
-        target_obj.set_attribute('desc', new_desc)
+        target_obj.desc = new_desc
 GLOBAL_CMD_TABLE.add_command("@describe", cmd_description, priv_tuple=("objects.create",),
                              help_category="Building")
 
@@ -1250,7 +1218,7 @@ def cmd_destroy(command):
 
     switches:
        override - The @destroy command will usually avoid accidentally destroying
-                  player objects as well as objects with the SAFE flag. This
+                  player objects as well as objects with SAFE set to True. This
                   switch overrides this safety.     
        instant|now  - Destroy the object immediately, without delay. 
 
@@ -1286,12 +1254,12 @@ def cmd_destroy(command):
         # Use search_for_object to handle duplicate/nonexistant results.
         if not target_obj:
             return
-        if target_obj.is_player() or target_obj.has_flag('SAFE'):
+        if target_obj.is_player() or target_obj.SAFE:
             if source_object.id == target_obj.id:
                 source_object.emit_to("%s: You can't destroy yourself." % targetname)
                 continue
             if not switch_override:
-                source_object.emit_to("%s: You must use @destroy/override on Players and objects with the SAFE flag set." % targetname)
+                source_object.emit_to("%s: You must use @destroy/override on Players and objects with SAFE set to True." % targetname)
                 continue
             if target_obj.is_superuser():
                 source_object.emit_to("%s: You can't destroy a superuser." % targetname)
@@ -1347,8 +1315,8 @@ def cmd_lock(command):
        - an Attribute:return_value pair (ex: key:yellow_key). The
            Attribute is the name of an attribute defined on the locked
            object. If this attribute has a value matching return_value,
-           the lock is passed. If no return_value is given, both
-           attributes and flags will be searched, requiring a True
+           the lock is passed. If no return_value is given, 
+           attributes will be searched, requiring a True
            value.
         
     If no keys at all are given, the object is locked for everyone.
@@ -1413,7 +1381,7 @@ def cmd_lock(command):
     if not obj:
         return    
 
-    obj_locks = obj.get_attribute_value("LOCKS")    
+    obj_locks = obj.LOCKS
 
     if "list" in switches:        
         if not obj_locks:
@@ -1436,7 +1404,7 @@ def cmd_lock(command):
                 source_object.emit_to("No %s set on this object." % ltype)
             else:
                 obj_locks.del_type(ltype)
-                obj.set_attribute("LOCKS", obj_locks)
+                obj.LOCKS = obj_locks
                 source_object.emit_to("Cleared lock %s on %s." % (ltype, obj.get_name()))
         else:
             source_object.emit_to("No %s set on this object." % ltype)
@@ -1452,7 +1420,7 @@ def cmd_lock(command):
         else: 
             keys = [k.strip() for k in keys.split(",")]
             obj_keys, group_keys, perm_keys = [], [], []
-            func_keys, attr_keys, flag_keys = [], [], []
+            func_keys, attr_keys = [], []
             allgroups = [g.name for g in Group.objects.all()]
             allperms = ["%s.%s" % (p.content_type.app_label, p.codename)
                         for p in Permission.objects.all()]
@@ -1479,12 +1447,8 @@ def cmd_lock(command):
                     # pack for later adding.
                     func_keys.append((funcname, rvalue))
                 elif ':' in key: 
-                    # an attribute/flag[:returnvalue] tuple.
+                    # an attribute[:returnvalue] tuple.
                     attr_name, rvalue = [k.strip() for k in key.split(':',1)]
-                    if not rvalue:
-                        # if return value is not set, also search for a key. 
-                        rvalue = True
-                        flag_keys.append(attr_name)
                     # pack for later adding
                     attr_keys.append((attr_name, rvalue))
                 else:
@@ -1502,8 +1466,6 @@ def cmd_lock(command):
                 keys.append(locks.FuncKey(func_keys, obj.dbref()))
             if attr_keys:
                 keys.append(locks.AttrKey(attr_keys))
-            if flag_keys:
-                keys.append(locks.FlagKey(flag_keys))
                 
             #store the keys in the lock
             obj_locks.add_type(ltype, keys)            
@@ -1512,8 +1474,7 @@ def cmd_lock(command):
                 kstring += " %s," % key 
             kstring = kstring[:-1]
             source_object.emit_to("Added lock '%s' to %s with keys%s." % (ltype, obj.name, kstring))
-
-        obj.set_attribute("LOCKS",obj_locks)
+        obj.LOCKS = obj_locks
 GLOBAL_CMD_TABLE.add_command("@lock", cmd_lock, priv_tuple=("objects.create",), help_category="Building")
 
 def cmd_examine(command):
@@ -1524,7 +1485,7 @@ def cmd_examine(command):
       examine [<object>]
 
     The examine command shows detailed game info about an
-    object; which attributes/flags it has and what it
+    object; which attributes it has and what it
     contains. If object is not specified, the current
     location is examined. 
     """
@@ -1583,16 +1544,16 @@ def cmd_examine(command):
          
         string = ""        
         newl = "\r\n"
-        # Format the examine header area with general flag/type info.
+        # Format the examine header area with general type info.
         
         string += str(target_obj.name) + newl
-        string += str("Type: %s Flags: %s" % (type(target_obj), 
-                                         target_obj.get_flags())) + newl        
+        string += str("Type: %s" % (type(target_obj), 
+                                        )) + newl        
         string += str("Owner: %s " % target_obj.get_owner()) + newl
         string += str("Zone: %s" % target_obj.get_zone()) + newl
         string += str("Parent: %s " % target_obj.get_script_parent()) + newl
 
-        locks = target_obj.get_attribute_value("LOCKS")
+        locks = target_obj.LOCKS
         if locks and "%s" % locks:
             string += str("Locks: %s" % locks) + newl
         state = target_obj.get_state()

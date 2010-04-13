@@ -197,9 +197,9 @@ def cmd_batchprocess(command):
     if switches and switches[0] in ['inter','interactive']:
         # Allow more control over how batch file is executed
     
-        if source_object.has_flag("ADMIN_NOSTATE"):
-            source_object.unset_flag("ADMIN_NOSTATE")                
-            string = cred + "\nOBS: Flag ADMIN_NOSTATE unset in order to "
+        if source_object.ADMIN_NOSTATE:
+            source_object.ADMIN_NOSTATE = False
+            string = cred + "\nOBS: ADMIN_NOSTATE set to False in order to "
             string += "run Interactive mode. Don't forget to re-set "
             string += "it (if you need it) after you're done."
             source_object.emit_to(string)
@@ -216,15 +216,15 @@ def cmd_batchprocess(command):
         show_curr(source_object)
     else:
         set_admin_nostate = False
-        if not source_object.has_flag("ADMIN_NOSTATE"):
-            source_object.set_flag("ADMIN_NOSTATE")
+        if not source_object.ADMIN_NOSTATE:
+            source_object.ADMIN_NOSTATE = True
             set_admin_nostate = True 
         source_object.emit_to("Running Batch processor - Automatic mode for %s ..." % filename)
         source_object.clear_state()
         batch_process(source_object, commands)
         source_object.emit_to("%s== Batchfile '%s' applied." % (cgreen,filename))
         if set_admin_nostate:
-            source_object.unset_flag("ADMIN_NOSTATE")
+            source_object.ADMIN_NOSTATE = False
 
 GLOBAL_CMD_TABLE.add_command("@batchprocess", cmd_batchprocess,
                              priv_tuple=("genperms.process_control",), help_category="Building")

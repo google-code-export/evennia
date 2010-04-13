@@ -13,7 +13,6 @@ from django.conf import settings
 from src.objects.models import Object
 from src import scheduler
 from src import defines_global
-from src import flags
 from src.cmdtable import GLOBAL_CMD_TABLE
 from src import gametime 
 
@@ -100,7 +99,7 @@ def cmd_list(command):
     @list - list info
 
     Usage:
-      @list commands | flags | process
+      @list commands | process
     
     Shows game related information depending
     on which argument is given. 
@@ -108,7 +107,7 @@ def cmd_list(command):
     server = command.session.server
     source_object = command.source_object
     
-    msg_invalid = "Usage @list commands|flags|process"
+    msg_invalid = "Usage @list commands|process"
     
     if not command.command_argument:    
         source_object.emit_to(msg_invalid)
@@ -140,8 +139,6 @@ def cmd_list(command):
         else:
             source_object.emit_to("Feature not available on Windows.")
             return
-    elif command.command_argument == "flags":
-        source_object.emit_to("Flags: "+" ".join(flags.SERVER_FLAGS))
     else:
         source_object.emit_to(msg_invalid)
 GLOBAL_CMD_TABLE.add_command("@list", cmd_list,priv_tuple=("genperms.game_info",), help_category="Admin")
