@@ -890,11 +890,13 @@ def cmd_py(command):
     source_object = command.source_object
     pycode = command.command_argument
     try:
-        ret = eval(pycode, {}, {'self':source_object})
+        ret = eval(pycode, {}, {'self':source_object, 'here':source_object.location})
     except:
-        exec(pycode, {},{'self':source_object})
+        exec(pycode, {},{'self':source_object, 'here':source_object.location})
         ret = False
     if ret:
         source_object.emit_to(str(ret))
 GLOBAL_CMD_TABLE.add_command("@py", cmd_py,
+                             priv_tuple=("genperms.process_control",), help_category="Admin")
+GLOBAL_CMD_TABLE.add_command("!", cmd_py,
                              priv_tuple=("genperms.process_control",), help_category="Admin")
