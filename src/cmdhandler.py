@@ -410,23 +410,23 @@ def match_neighbor_ctables(command,test=False):
       any commands.
     """
     source_object = command.source_object
-    location = source_object.get_location()
+    location = source_object.location
     if location:
         # get all objects, including the current room
         neighbors = location.contents  + [location] + source_object.contents
         for neighbor in neighbors:
             #print "neighbor:", neighbor 
-            obj_cmdtable = neighbor.get_cmdtable()
-            if obj_cmdtable and command_table_lookup(command, obj_cmdtable,
+            if hasattr(neighbor, "cmdtable"):
+                if command_table_lookup(command, neighbor.cmdtable,
                                                  test=test,
                                                  neighbor=neighbor):
 
-                # If there was a command match, set the scripted_obj attribute
-                # for the script parent to pick up.
-                if test:
-                    return True
-                command.scripted_obj = neighbor
-                return True            
+                    # If there was a command match, set the scripted_obj attribute
+                    # for the script parent to pick up.
+                    if test:
+                        return True
+                    command.scripted_obj = neighbor
+                    return True            
     # No matches
     return False
 

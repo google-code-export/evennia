@@ -2,9 +2,10 @@ from src.objects.models import Object as OBJECT
 from django.db import models
 from django.contrib.auth.models import User
 from src.objects.models import AttributeField
+from src.locks import Locks
 
 class Object(OBJECT):
-    pass
+    LOCKS = AttributeField(default=Locks())
 
 class Player(Object):
     user = models.ForeignKey(User)

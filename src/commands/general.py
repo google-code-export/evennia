@@ -262,7 +262,6 @@ def cmd_look(command):
     Observers your location or objects in your vicinity. 
     """
     source_object = command.source_object
-    
     # If an argument is provided with the command, search for the object.
     # else look at the current room. 
     if command.command_argument:    
@@ -271,7 +270,7 @@ def cmd_look(command):
         if not target_obj:
             return
     else:
-        target_obj = source_object.get_location()
+        target_obj = source_object.location
     
     # SCRIPT: Get the item's appearance
     source_object.emit_to(target_obj.return_appearance(pobject=source_object))

@@ -89,7 +89,5 @@ def del_event(pid):
             # We have to sync to disk, otherwise we might end
             # up in situations (such as after a crash) where an
             # object has been removed, but the event tied to it remains.
-            ecache = [event for event in SCHEDULE
-                      if event.persistent]            
-            cache.set_pcache("_persistent_event_cache", ecache)
-            cache.save_pcache()
+            # TODO
+            pass
