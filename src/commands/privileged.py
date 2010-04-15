@@ -5,6 +5,8 @@ are generally @-prefixed commands, but there are exceptions.
 
 from django.contrib.auth.models import Permission, Group, User
 from django.conf import settings
+from django.db.models.loading import AppCache
+from django.utils.datastructures import SortedDict
 from src.objects.models import Object
 from src import session_mgr
 from src import comsys
@@ -14,10 +16,9 @@ from src.helpsys import helpsystem
 from src.config.models import CommandAlias
 from src.config import edit_aliases
 from src import scheduler
+import src.objects.reimport
 
-
-
-def cmd_reload(command):
+def OLDcmd_reload(command):
     """
     @reload - reload game subsystems
 
@@ -44,7 +45,7 @@ def cmd_reload(command):
         source_object.emit_to("Usage: @reload/<aliases|scripts|commands|all>")
         return
     switch = switches[0]
-    sname = source_object.get_name(show_dbref=False)
+    sname = source_object.name
 
     if switch in ["reset","all","aliases","alias"]:
         # Reload Aliases
@@ -59,10 +60,6 @@ def cmd_reload(command):
         command.session.server.reload(source_object=command.source_object)
         comsys.cemit_mudinfo("... all Command modules were reloaded.")
 
-GLOBAL_CMD_TABLE.add_command("@reload", cmd_reload,
-                             priv_tuple=("genperms.process_control",), help_category="Admin")
-GLOBAL_CMD_TABLE.add_command("@restart", cmd_reload,
-                             priv_tuple=("genperms.process_control",), help_category="Admin")
 
 def cmd_boot(command):
     """
@@ -186,7 +183,7 @@ def cmd_delplayer(command):
             return
     # boot the player then delete 
     source_object.emit_to("Booting and informing player if currently online ...")
-    name = pobj.get_name()
+    name = pobj.name
     msg = "\nYour account '%s' is being *permanently* deleted.\n" %  name
     if reason:
         msg += " Reason given:\n  '%s'" % reason
@@ -228,7 +225,7 @@ def cmd_newpassword(command):
     if hasattr(target_obj, "set_password"):
         source_object.emit_to("This type of object doesn't have a password that can be set this way.")
     elif not source_object.controls_other(target_obj):
-        source_object.emit_to("You do not control %s." % (target_obj.get_name(),))
+        source_object.emit_to("You do not control %s." % (target_obj.name,))
     else:
         uaccount = target_obj.get_user_account()
         if len(newpass) == 0:
@@ -236,9 +233,9 @@ def cmd_newpassword(command):
         else:
             uaccount.set_password(newpass)
         uaccount.save()
-        source_object.emit_to("%s - PASSWORD set." % (target_obj.get_name(),))
+        source_object.emit_to("%s - PASSWORD set." % (target_obj.name,))
         target_obj.emit_to("%s has changed your password." % 
-                           (source_object.get_name(show_dbref=False),))
+                           (source_object.name,))
 GLOBAL_CMD_TABLE.add_command("@newpassword", cmd_newpassword, 
                              priv_tuple=("genperms.manage_players",),
                              help_category="Admin")
@@ -282,7 +279,7 @@ def cmd_service(command):
         source_object.emit_to("Usage: @servive/<start|stop|list> [service]")
         return 
     switch = switches[0].strip()
-    sname = source_object.get_name(show_dbref=False)
+    sname = source_object.name
 
     if switch == "list":        
         #Just display the list of installed services and their status, then exit.
@@ -354,7 +351,7 @@ def cmd_shutdown(command):
     Shut the game server down gracefully.
     """    
     command.source_object.emit_to('Shutting down...')
-    print 'Server shutdown by %s' % (command.source_object.get_name(show_dbref=False),)
+    print 'Server shutdown by %s' % (command.source_object.name,)
     command.session.server.shutdown()
 GLOBAL_CMD_TABLE.add_command("@shutdown", cmd_shutdown,
                              priv_tuple=("genperms.process_control",),
@@ -443,9 +440,9 @@ def cmd_setperm(command):
             for p in uperms:
                 s += "\n  ---- %s" % p        
         if not s:
-            s = "User %s has no permissions." % obj.get_name()
+            s = "User %s has no permissions." % obj.name
         else: 
-            s = "\nPermissions for user %s: %s" % (obj.get_name(),s)     
+            s = "\nPermissions for user %s: %s" % (obj.name,s)     
         source_object.emit_to(s)
     else:
         # we supplied an argument on the form obj = perm
@@ -473,8 +470,8 @@ def cmd_setperm(command):
                 return
             user.user_permissions.add(permission)
             user.save();obj.save()
-            source_object.emit_to("%s gained the permission '%s'." % (obj.get_name(), permission.name))       
-            obj.emit_to("%s gave you the permission '%s'." % (source_object.get_name(show_dbref=False,no_ansi=True),
+            source_object.emit_to("%s gained the permission '%s'." % (obj.name, permission.name))       
+            obj.emit_to("%s gave you the permission '%s'." % (source_object.name,
                                                              permission.name))
         if "del" in switches:
             #delete the permission from this user
@@ -486,8 +483,8 @@ def cmd_setperm(command):
                 return 
             user.user_permissions.remove(permission)
             user.save();obj.save()
-            source_object.emit_to("%s lost the permission '%s'." % (obj.get_name(), permission.name))            
-            obj.emit_to("%s removed your permission '%s'." % (source_object.get_name(show_dbref=False,no_ansi=True),
+            source_object.emit_to("%s lost the permission '%s'." % (obj.name, permission.name))            
+            obj.emit_to("%s removed your permission '%s'." % (source_object.name,
                                                              permission.name))            
 GLOBAL_CMD_TABLE.add_command("@setperm", cmd_setperm,
                              priv_tuple=("auth.change_permission",
@@ -556,9 +553,9 @@ def cmd_setgroup(command):
                 app = p.content_type.app_label
                 s += "\n   -- %s.%s%s\t%s" % (app, p.codename, (35 - len(app) - len(p.codename)) * " ", p.name)                
         if not s:
-            s = "User %s is not a member of any groups." % obj.get_name()
+            s = "User %s is not a member of any groups." % obj.name
         else: 
-            s = "\nGroup memberships for user %s: %s" % (obj.get_name(),s)     
+            s = "\nGroup memberships for user %s: %s" % (obj.name,s)     
         source_object.emit_to(s)
     else:
         # we supplied an argument on the form obj = group
@@ -581,8 +578,8 @@ def cmd_setgroup(command):
                 return
             user.groups.add(group)
             user.save(); obj.save()
-            source_object.emit_to("%s added to group '%s'." % (obj.get_name(), group.name))       
-            obj.emit_to("%s added you to the group '%s'." % (source_object.get_name(show_dbref=False,no_ansi=True),
+            source_object.emit_to("%s added to group '%s'." % (obj.name, group.name))       
+            obj.emit_to("%s added you to the group '%s'." % (source_object.name,
                                                              group.name))
         if "del" in switches:
             #delete the permission from this user
@@ -595,8 +592,8 @@ def cmd_setgroup(command):
             
             user.groups.remove(group)
             user.save(); obj.save()
-            source_object.emit_to("%s was removed from group '%s'." % (obj.get_name(), group.name))            
-            obj.emit_to("%s removed you from group '%s'." % (source_object.get_name(show_dbref=False,no_ansi=True),
+            source_object.emit_to("%s was removed from group '%s'." % (obj.name, group.name))            
+            obj.emit_to("%s removed you from group '%s'." % (source_object.name,
                                                              group.name))            
 GLOBAL_CMD_TABLE.add_command("@setgroup", cmd_setgroup,
                              priv_tuple=("auth.change_group",
@@ -863,3 +860,41 @@ GLOBAL_CMD_TABLE.add_command("@delevent", cmd_delevent,
                              priv_tuple=("genperms.process_control",),
                              help_category="Admin")    
 
+
+def cmd_reload(command):
+    source_object = command.source_object
+    cache = AppCache()
+    for app in cache.get_apps():
+        source_object.emit_to("Reloading app: %s" % app.__name__)
+	__import__(app.__name__)
+	reload(app)
+    cache.app_store = SortedDict()
+    cache.app_models = SortedDict()
+    cache.app_errors = {}
+    cache.handled = {}
+    cache.loaded = False
+    #clean_modules_cache()
+    source_object.emit_to("Cleaned django module cache.")
+    modified = src.objects.reimport.modified()
+    if modified:
+	source_object.emit_to("Reloading modified modules: %s" % modified)
+	src.objects.reimport.reimport(*src.objects.reimport.modified())
+    else:
+	source_object.emit_to("Nothing new to import.")
+    source_object.emit_to("Reloaded modules.")
+
+GLOBAL_CMD_TABLE.add_command("@reload", cmd_reload,
+                             priv_tuple=("genperms.process_control",), help_category="Admin")
+
+def cmd_py(command):
+    source_object = command.source_object
+    pycode = command.command_argument
+    try:
+        ret = eval(pycode, {}, {'self':source_object})
+    except:
+        exec(pycode, {},{'self':source_object})
+        ret = False
+    if ret:
+        source_object.emit_to(str(ret))
+GLOBAL_CMD_TABLE.add_command("@py", cmd_py,
+                             priv_tuple=("genperms.process_control",), help_category="Admin")

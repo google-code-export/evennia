@@ -131,7 +131,7 @@ def cmd_push_button(command):
         retval += "\n BOOOOOM!"
         obj.close_lid()
     else:
-        retval = "There is a glass lid covering "
+        retval = "There is a thin glass lid covering "
         retval += "the button as a safety measure. If you "
         retval += "want to press the button you need to open "
         retval += "the lid first."

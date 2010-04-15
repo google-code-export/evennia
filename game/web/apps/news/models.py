@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib import admin
 from django.contrib.auth.models import User
+from django.contrib.admin.sites import AlreadyRegistered
 
 class NewsTopic(models.Model):
     """
@@ -23,7 +24,13 @@ class NewsTopic(models.Model):
 
     class Admin:
         list_display = ('name', 'icon')
-admin.site.register(NewsTopic)
+
+#hack to make it work with @reload
+# need to look at this, we probably do want to reload them somehow
+try:
+   admin.site.register(NewsTopic)
+except AlreadyRegistered:
+   pass
 
 class NewsEntry(models.Model):
     """
@@ -46,4 +53,8 @@ class NewsEntry(models.Model):
         list_display = ('title', 'author', 'topic', 'date_posted')
         list_filter = ('topic',)
         search_fields = ['title']
-admin.site.register(NewsEntry)
+try:
+    admin.site.register(NewsEntry)
+except AlreadyRegistered:
+    pass
+

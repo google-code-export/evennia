@@ -10,6 +10,7 @@ from src.cmdtable import GLOBAL_CMD_TABLE
 from src import defines_global
 from src.ansi import ANSITable
 from src.scripthandler import scriptlink
+from src.objects import reimport
 
 def cmd_teleport(command):
     """
@@ -1609,26 +1610,3 @@ def cmd_examine(command):
         source_object.emit_to(string)
             
 GLOBAL_CMD_TABLE.add_command("examine", cmd_examine, priv_tuple=("objects.info",))
-
-def cmd_reload(command):
-        cache = AppCache()
-        for app in cache.get_apps():
-            __import__(app.__name__)
-            reload(app)
-        cache.app_store = SortedDict()
-        cache.app_models = SortedDict()
-        cache.app_errors = {}
-        cache.handled = {}
-        cache.loaded = False
-        #clean_modules_cache()
-        self.msg("Cleaned django module cache.")
-        modified = reimport.modified()
-        if modified:
-            self.msg("Reloading modified modules: %s" % modified)
-            reimport.reimport(*reimport.modified())
-        else:
-            self.msg("Nothing new to import.")
-        self.msg("Reloaded modules.")
-
-GLOBAL_CMD_TABLE.add_command("reload", cmd_examine, priv_tuple=("objects.info",))
-
