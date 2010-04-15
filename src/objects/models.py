@@ -384,7 +384,7 @@ class Object(Primitive):
         if self.is_superuser():
             return True
 
-        if self.get_user_account().has_perm(perm):
+        if self.user.has_perm(perm):
             return True
         else:
             return False
@@ -407,7 +407,7 @@ class Object(Primitive):
 
         for perm in perm_list:
             # Stop searching perms on the first match.
-            if self.get_user_account().has_perm(perm):
+            if self.user.has_perm(perm):
                 return True
             
         # Fall through to failure
@@ -425,7 +425,7 @@ class Object(Primitive):
         if self.is_superuser():
             return True
 
-        if group in [g.name for g in self.get_user_account().groups.all()]:
+        if group in [g.name for g in self.user.groups.all()]:
             return True
         else:
             return False
