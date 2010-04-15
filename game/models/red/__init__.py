@@ -52,7 +52,7 @@ class EventCloselid(IntervalEvent):
         # we must call super to make sure things work!
         super(EventCloselid, self).__init__()
         # store the object reference
-        self.obj_dbref = obj.dbref()
+        self.obj = obj
         # This is used in e.g. @ps to show what the event does
         self.description = "Close lid on %s" % obj 
         # We make sure that this event survives a reboot
@@ -72,11 +72,10 @@ class EventCloselid(IntervalEvent):
         try:
             # if the lid is open, close it. We have to find the object
             # again since it might have changed. 
-            obj = Object.objects.get_object_from_dbref(self.obj_dbref)
-            if obj.has_flag("LID_OPEN"):
-                obj.close_lid()
+            if self.obj.lid_open:
+                self.obj.close_lid()
                 retval = "The glass cover over the button silently closes by itself."
-                obj.get_location().emit_to_contents(retval)
+                self.obj.location.emit_to_contents(retval)
         except:
             # send the traceback to the log instead of letting it by.
             # It is important that we handle exceptions gracefully here!
@@ -99,7 +98,7 @@ def cmd_open_lid(command):
     # get the object the command is defined on. 
     obj = command.scripted_obj
 
-    if obj.has_flag("LID_OPEN"):
+    if obj.lid_open:
         retval = "The lid is already open."
     else:
         retval = "You lift the lid, exposing the tempting button."
@@ -111,7 +110,7 @@ def cmd_close_lid(command):
     Close the lid again.
     """
     obj = command.scripted_obj
-    if not obj.has_flag("LID_OPEN"):
+    if not obj.lid_open:
         retval = "The lid is already open."
     else:
         retval = "You secure the glass cover over the button."
@@ -126,7 +125,7 @@ def cmd_push_button(command):
     """    
     obj = command.scripted_obj
     
-    if obj.has_flag("LID_OPEN"):
+    if obj.lid_open:
         retval = "You press the button ..."
         retval += "\n ..."    
         retval += "\n BOOOOOM!"
@@ -153,7 +152,7 @@ class RedButton(Object):
     above to close the lid 
     """
     class Meta:
-        abstract = True
+        proxy = True
         # gotta figure out a way to set all Objects to this app_label
         app_label = "game"
     desc = AttributeField(default="This is a big red button. It has a glass cover.")
@@ -167,13 +166,13 @@ class RedButton(Object):
         This function is called when object is created. Use this
         preferably over __init__.
         """        
+        print "CREEEEEEATING A RED BUTTON"
         # add the object-based commands to the button
-        #self.add_command("open lid", cmd_open_lid)
-        #self.add_command("lift lid", cmd_open_lid)
-        #self.add_command("close lid", cmd_close_lid)        
-        #self.add_command("push button", cmd_push_button)
-        #self.add_command("push the button", cmd_push_button)
-        pass
+        self.add_command("open lid", cmd_open_lid)
+        self.add_command("lift lid", cmd_open_lid)
+        self.add_command("close lid", cmd_close_lid)        
+        self.add_command("push button", cmd_push_button)
+        self.add_command("push the button", cmd_push_button)
         
     def open_lid(self):
         """

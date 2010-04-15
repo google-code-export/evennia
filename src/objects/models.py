@@ -30,6 +30,8 @@ from django.db.models import signals
 def dbg(*args):
     logger.log_errmsg(", ".join(map(str, args)))
 
+from src.objects.PickledObjectField import PickledObjectField
+
 class PrimitiveModelBase(DEFAULT_MODEL_BASE):
     def __call__(cls, *args, **kwargs):
         # new_instance is custom, everything else is cut and paste
@@ -153,47 +155,6 @@ class Primitive(DEFAULT_MODEL):
     def matches(self, txt):
         if txt.lower() == self.name.lower():
             return True
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
-
-class PickledObject(str):
-    pass
-
-class PickledObjectField(models.Field):
-    __metaclass__ = models.SubfieldBase
-    
-    def to_python(self, value):
-        if isinstance(value, PickledObject):
-            # If the value is a definite pickle; and an error is raised in de-pickling
-            # it should be allowed to propogate.
-            return pickle.loads(str(value))
-        else:
-            try:
-                return pickle.loads(str(value))
-            except:
-                # If an error was raised, just return the plain value
-                return value
-    
-    def get_db_prep_save(self, value):
-        if value is not None and not isinstance(value, PickledObject):
-            value = PickledObject(pickle.dumps(value))
-        return value
-    
-    def get_internal_type(self): 
-        return 'TextField'
-    
-    def get_db_prep_lookup(self, lookup_type, value):
-        if lookup_type == 'exact':
-            value = self.get_db_prep_save(value)
-            return super(PickledObjectField, self).get_db_prep_lookup(lookup_type, value)
-        elif lookup_type == 'in':
-            value = [self.get_db_prep_save(v) for v in value]
-            return super(PickledObjectField, self).get_db_prep_lookup(lookup_type, value)
-        else:
-            raise TypeError('Lookup type %s is not supported.' % lookup_type)
-
 
 class Attribute(DEFAULT_MODEL):
     primitive = models.ForeignKey(Primitive, related_name="_attributes")
@@ -211,11 +172,12 @@ class AttributeField(object):
         else:
             primitive = instance
         val = self.__get__(instance)
-        attr, created = Attribute.objects.get_or_create(primitive=primitive,name=self.name)[0]
+        attr, created = Attribute.objects.get_or_create(primitive=primitive,name=self.name)
         if attr.value != val:
            attr.value = val
            attr.save()
     def contribute_to_class(self, cls, name):
+        print "CONTRIBUTING AttributeField %s" % name
         self.name = name
         setattr(cls, name, self)
         signals.post_save.connect(self.post_save_listener, sender=cls, weak=False, dispatch_uid="post_save_listener")
@@ -226,6 +188,7 @@ class AttributeField(object):
                return getattr(instance, '_%s_cache' % self.name, None)
         elif instance.id:
             tval, created = Attribute.objects.get_or_create(primitive=instance,name=self.name)
+            # probaly should be changed to just add a default to PickledObjectField
             if created:
                 val = self.default
             else:
@@ -870,25 +833,16 @@ class Object(Primitive):
         # we save using the attribute object to avoid
         # the protection on the __command_table__ keyword
         # in set_attribute_value()
-        cmdtable = self.__command_table__
-        if not cmdtable:
+        if not hasattr(self, "cmdtable"):
             # create new table if we didn't have one before
             from src.cmdtable import CommandTable 
             had_table = False 
-            cmdtable = CommandTable()
+            self.cmdtable = CommandTable()
         # add the command to the object's command table.
-        cmdtable.add_command(command_string, function, priv_tuple, extra_vals,
+        self.cmdtable.add_command(command_string, function, priv_tuple, extra_vals,
                              help_category, priv_help_tuple,
                              auto_help_override)
-        # store the cmdtable again
-        self.__cmd_table__ = cmdtable
             
-    def get_cmdtable(self):
-        """
-        Return this object's local command table, if it exists.
-        """
-        return self.get_attribute("__command_table__")
-
     #state access functions
 
     def get_state(self):
@@ -1091,8 +1045,7 @@ class Object(Primitive):
         else:
             show_dbrefs = False
                         
-        description = target_obj.desc
-        if description is not None:
+        if hasattr(target_obj, "desc"):
             retval = "%s%s\r\n%s%s%s" % ("%ch",
                 target_obj.name,
                 target_obj.desc, lock_msg,
