@@ -31,10 +31,67 @@ from src.objects.PickledObjectField import PickledObjectField
 from game.gamesrc.htmlformatting import *
 
 class PrimitiveModelBase(DEFAULT_MODEL_BASE):
+    """
+        This model is the python __metaclass__ for the Primitive
+	model and all Primitive descendents. It is NOT the models'
+	Meta. The __metaclass__ is broken out from Primitive only
+	for readability purposes.
+
+	Django will by default create a new object for each model
+	instance but we will intercept that so that if there is
+	already an existing in-memory copy of the object we return
+	that instead.
+
+	This functionality all comes from idmapper, but we provide
+	a custom __call__ so that the first time a model instance
+	with a given primary key is created, at_object_creation is
+	called on it.
+
+        Note that at_object_creation is called the first time a
+	given object is put into memory, so if you save an object
+	to the database and restart the server it will be called
+	again the first time that particular object is referenced.
+
+	This makes it an ideal spot to load other data that should
+	be persistant onto an object.
+
+	DIFFICULTY: at_object_creation is responsible for making
+	sure only the most specific model representing an object
+	does anything during at_object_creation. This functionality
+	may need to move into a manager or into here at a later
+	date to avoid some nasty recursion issues, but shouldn't
+	touch very many areas of the code and should not affect
+	game-level code.
+    """
     def __call__(cls, *args, **kwargs):
+        """
+            Whenver a django model instance is created, if an
+	    instance of the given model with the given primary key
+	    has already been created, then return that instance
+	    instead.
+
+	    If no such model instance exists, create it, cache it,
+	    and call at_object_creation on that instance.
+
+	    Note that if the server restarts then the cached copy
+	    goes away and the first time a new django model
+	    instance with a given primary key is created, it too
+	    will have at_object_creation called on it.
+
+	"""
         # new_instance is custom, everything else is cut and paste
         def new_instance():
-            #print "CALLING ", cls, args, kwargs
+	    """
+	        Used by __call__ to cache and create a new django
+		model instance if no cached copy of a model with
+		a given primary key already exists. In practical
+		terms this means after a reboot, the first time
+		an object is referenced it's at_object_creation
+		will be called.
+
+                After the object is created and cached it runs
+		the object's at_object_creation.
+            """
             x = super(DEFAULT_MODEL_BASE, cls).__call__(*args, **kwargs)
             # go ahead and cache it even before we init it so we don't
             # end up in a recursive loop with primitives initing other prims
@@ -54,18 +111,33 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
         return cached_instance
 
 class PolymorphicPrimitiveForeignKey(models.Field):
+    """
+         Django field type that represents a reference to a Primitive model.
+	 Extends IntegerField so that the value stored in the database is
+	 the id of the Primitive, but when set and referenced returns the
+	 preferred object of the primitive. 
+
+	 For example, if you have a Primitive id=3 that has a preferred
+	 model of Lion, and Lion descends from Cat which descends from
+	 Beast which descends from Animal, you can do self.killed_me = lion
+	 and it will store 3 in the datagbase, save the model, reboot the
+	 server, and next tim eyou load a model, type of
+	 (mdl_instance.killed_me) will be Lion instance, not integer.
+
+	 Used by Primitive._location to store what containers objects are
+	 in, as well as on Exit.destination to determine what object
+	 an exit leads to.
+    """
     __metaclass__ = models.SubfieldBase
     def get_internal_type(self):
         return "IntegerField"
     def to_python(self, value):
-        #print "TO PYTHON", type(self), self, value
         if value is not None:
             if type(value) is int:
                 return Primitive.objects.only("preferred_model").get(id=value).preferred_object
             else:
                 return value
     def get_db_prep_value(self, value):
-        #print"DB PREP VAL", type(self), self, value
         if value is not None:
             if hasattr(value, "primitive_ptr"):
                 return value.primitive_ptr.id
@@ -73,16 +145,44 @@ class PolymorphicPrimitiveForeignKey(models.Field):
                 return value.id
 
 class PreferredModel(models.CharField):
-    """ TODO: should probably return the actual model object"""
+    """ 
+        Place-holder: at some-point preferred_model may actually return
+        the model object instead of the name which gets interpreted by
+	scripthandler.scriptlink to return the model.
+    """
     def __init__(self, *args, **kwargs):
         kwargs['max_length'] = 255
         super(models.CharField, self).__init__(*args, **kwargs)
 
 class Primitive(DEFAULT_MODEL):
+    """
+       The model from which all in-game objects (objects that have a
+       meaningful .location field) are descended from. Primitives
+       have an auto-created id, a location, and a preferred model
+       which represents what type of model should be used to
+       represent the item in-game.
+
+       Rooms have a location of None, all other objects have a location
+       of type PolymorphicPrimitiveForeignKey that is the preferred object
+       of a Primitive model instance.
+
+       In order to be able to do things when the location is set, and in
+       order to avoid creating yet another custom Django field type,
+       the actual location of an object is stored as _location,
+       and location is a property with a setter.
+    """
     __metaclass__ = PrimitiveModelBase
     preferred_model = PreferredModel()
     _location = PolymorphicPrimitiveForeignKey(blank=True,null=True,db_index=True)
     def _set_location(self, location):
+        """
+	    Used by the location property to set .location, adjust the contents
+	    of it's source and destination container, and to call at_leave and
+	    other similiar trigger functions on objects.
+
+	    Ultimately, could throw an exception in leu of using the existing
+	    lock system when movement is prohibited.
+	"""
         pself = self.preferred_object
         if pself.location:
             pself.location.at_leave(self) # 
@@ -92,31 +192,55 @@ class Primitive(DEFAULT_MODEL):
         pself.location.at_obj_receive(self)
     location = property(fget=lambda self:self._location,fset=_set_location)
     def save(self, *args, **kwargs):
+        """
+	    All primitives need to have a preferred_model. If they do not
+	    have one by time they are first saved, go ahead and try to
+	    figure out what it should be.
+
+	    All primitive instances are ther own preferred_object when
+	    preferred_modl is False.
+	"""
         if not self.pk and not self.preferred_model:
             self.preferred_model = self.__module__ + "." + self.__class__.__name__
         super(Primitive, self).save(*args, **kwargs)
     def at_object_creation(self):
-        #print "AT OBJECT CREATED", self
+        """
+           Called the first time a model instance with a given primary key is
+	   referenced. In practice this tends to happen once per object per
+	   reboot.
+
+	   On the Primitive, this sets a preferred_model for an object if one
+	   does not exist, adds the object to the contents of its container
+	   and initializes its contents.
+
+	   Often extended on objects inheriting from Primitive, especially
+	   by src.models.Object.
+	"""
+
+	# TODO shouldn't be needed but come  back to this later!
+	# can be useful during import to avoid initializing objects so that
+	# you can force a different preferred_model from the one being imported
         if hasattr(self, "already_created"):
             return
-        try:
-           nm = self.name
-        except:
-           nm = "#%s" % self.id
-        #print "NAME WS", nm
-        # set up the preferred model from the get-go
+
+        # if an object has no preferred_model try to figure out what it should be
         if not self.pk and not self.preferred_model:
             self.preferred_model = self.__module__ + "." + self.__class__.__name__
-        #print "PREFERRED MODULE", self.preferred_model
-        # dont add an item to inventory contents if its not the preferred model
+
+        # dont do anything its not the preferred model
         if self is not self.preferred_object:
-        #    print "ALREDY GOT A PREFERRED OBJECT"
             return
-        #print "DIDNT HAVE A PREFERRED OBJECT SO GNNA BE", self, self.preferred_model
+	####### 
+        # TODO:
+        # other models probably should NOT extend this
+        # and we should call an at_object_initialization
+        # on them so they don't accidently get called on
+        # non-preferred models
+        #######
+
         self.already_created = True
         self.contents = []
         possible_contents = Primitive.objects.filter(_location=self)
-        # possible_contents = self._default_manager.filter(_location=self)
         # cause the other objects it contains to come into being
         for prim in possible_contents:
             prim.preferred_object
@@ -125,24 +249,23 @@ class Primitive(DEFAULT_MODEL):
             # instances of objects showing up in room
             if self not in self.location.contents:
                 self.location.contents.append(self.preferred_object)
+
     def _get_preferred_object(self):
+        """
+            A given primitive can be represented lots of ways. A Lion will 
+	    show up on a list of Cats, Animals, Primitives, etc.
+
+	    Preferred object gets the preferred type of an object by running
+	    preferred_model through the scripthandler which, then returns
+	    an instance of that mdl with the same key.
+
+	    If an object does not have a preferred_model it is it's own
+	    preferred_object.
+	"""
         if not self.preferred_model:
             return self
-	# Split the script name up by periods to give us the directory we need
-	# to change to. I really wish we didn't have to do this, but there's some
-	# strange issue with __import__ and more than two directories worth of
-	# nesting.
         scriptname = self.preferred_model
-	#full_script = "%s.%s" % (settings.SCRIPT_IMPORT_PATH, self.preferred_model)
-        
-	#script_module = ".".join(self.preferred_model.split('.')[0:-1])
-	#script_name = self.preferred_model.split('.')[-1]
-	# Change the working directory to the location of the script and import.
-        
-	#module = __import__(script_module, fromlist=[script_name])
-        #mdl = getattr(module, script_name)
         mdl = scriptlink(scriptname)
-
         if hasattr(mdl, "primitive_ptr") and self.id and self.preferred_model:
             try:
                 return mdl.objects.get(primitive_ptr=self.id)
@@ -151,20 +274,51 @@ class Primitive(DEFAULT_MODEL):
         else:
             return self
     preferred_object = property(fget=_get_preferred_object)
-    def matches(self, txt):
-        if txt.lower() == self.name.lower():
-            return True
 
 class Attribute(DEFAULT_MODEL):
+    """
+        Lets you store arbitrary pickled data and associate it with a Primitive.
+
+	Data in this model may or may not be current.
+
+	See AttributeField for more information. Most attributes are created by
+	adding AttributeField to Django models descended from primitive.
+	
+    """
     primitive = models.ForeignKey(Primitive, related_name="_attributes")
     name = models.CharField(max_length=255)
     value = PickledObjectField()
 
 class AttributeField(object):
-    def __init__(self, default=None):
+    """
+        When a Primitive model instance is created that has an AttributeField,
+	the attribute field registers a listener that saves any cached
+	copys of the database to the attributes model when the primitive is saved.
+
+	The attribute value is lazy-loaded and cached onto the Primitive
+	the first time the value is checked via the field instance's
+	__get__.
+
+        When the field value changes, if autosave=True, it will instantly save
+	the attribute back to the database, otherwise it will save the
+	value on the primitive model instance, and will save along with the
+	primitive.
+
+        Do not expect attribute values to be current in the database unless
+	autosave = True.
+    """
+    def __init__(self, default=None, autosave=False):
+        """
+           Store default field settings on the AttributeField instance.
+	"""
         self.name = None
         self.default = default
-    def post_save_listener(self, **kwargs):
+	self.autosave = False
+
+    def save_to_database(self, **kwargs):
+        """
+            Save the cached value to the database.
+	"""
         instance = kwargs['instance']
         if hasattr(instance, "primitive_ptr"):
             primitive = instance.primitive_ptr
@@ -175,19 +329,31 @@ class AttributeField(object):
         if attr.value != val:
            attr.value = val
            attr.save()
+
     def contribute_to_class(self, cls, name):
-        print "CONTRIBUTING AttributeField %s" % name
+        """
+           Called whenever django adds the field to the django model
+	   (not to to an instance of the django model).
+
+	   Connects up the save_to_database.
+	   TODO: delete/dont create Attributes that have the default value
+	"""
         self.name = name
         setattr(cls, name, self)
-        signals.post_save.connect(self.post_save_listener, sender=cls, weak=False, dispatch_uid="post_save_listener")
+        signals.post_save.connect(self.save_to_database, sender=cls, weak=False, dispatch_uid="save_to_database")
     def __get__(self, instance, owner=None):
+        """
+	    Called when a value is retrieved from the AttributeField instance.
+
+	    If there is a cached value, return it, otherwise return the default.
+	"""
+        # Fields don't have values, only field instances!
         if instance is None:
             return None
         elif hasattr(instance, '_%s_cache' % self.name):
                return getattr(instance, '_%s_cache' % self.name, None)
         elif instance.id:
             tval, created = Attribute.objects.get_or_create(primitive=instance,name=self.name)
-            # probaly should be changed to just add a default to PickledObjectField
             if created:
                 val = self.default
             else:
@@ -197,6 +363,10 @@ class AttributeField(object):
         else:
             return None
     def __set__(self, instance, value):
+        """
+            set the value of the attribute field
+	    TODO: call save_to_database if autosave = True
+	"""
         if instance is None:
             raise AttributeError(_('%s can only be set on instances.') % self.name)
         else:
@@ -207,9 +377,15 @@ class AttributeField(object):
 class Object(Primitive):
     """
     The Object class is very generic representation of a THING, PLAYER, EXIT,
-    ROOM, or other entities within the database. Pretty much anything in the
-    game is an object. Objects may be one of several different types, and
-    may be parented to allow for differing behaviors.
+    ROOM, or other entity which as a meaningful location.
+
+    Ultimately all this stuff could move into Primitive but alot of this
+    is MUSH and session handler-specific and should stay outside.
+
+    Incorporates alot of stuff from the object scriptparent.
+
+    Almost all specific objects should NOT descend from src.models.objects.Objects
+    but from DEFAULT_GAME_OBJECT, currently src.game.models.Object
     """
     
     class Meta(PrimitiveModelBase):
@@ -256,6 +432,10 @@ class Object(Primitive):
         usable by Object.objects.dbref_search()
         """
         return "#%s" % str(self.id)
+
+    def matches(self, txt):
+        if txt.lower() == self.name.lower():
+            return True
         
     #
     # BEGIN COMMON METHODS
@@ -620,47 +800,6 @@ class Object(Primitive):
                                          (self.name,self.id,self.location_id))
             return False
 
-## #    def get_cache(self):
-## #        """
-## #        Returns an object's volatile cache (in-memory storage)
-## #        """
-## #        return cache.get_cache(self.dbref())
-
-## #    def del_cache(self):
-## #        """
-## #        Cleans the object cache for this object
-## #        """
-## #        cache.flush_cache(self.dbref())        
-## #    cache = property(fget=get_cache, fdel=del_cache)
-
-    ## def get_pcache(self):
-    ##     """
-    ##     Returns an object's persistent cache (in-memory storage)
-    ##     """
-    ##     return cache.get_pcache(self.dbref())
-
-    ## def del_pcache(self):
-    ##     """
-    ##     Cleans the object persistent cache for this object
-    ##     """
-    ##     cache.flush_pcache(self.dbref())
-        
-    ## pcache = property(fget=get_pcache, fdel=del_pcache)
-    
-    ## def get_script_parent(self):
-    ##     """
-    ##     Returns a string representing the object's script parent.
-    ##     """
-    ##     if not self.script_parent or self.script_parent.strip() == '':
-    ##         # No parent value, assume the defaults based on type.
-    ##         if self.is_player():
-    ##             return settings.SCRIPT_DEFAULT_PLAYER
-    ##         else:
-    ##             return settings.SCRIPT_DEFAULT_OBJECT
-    ##     else:
-    ##         # A parent has been set, load it from the field's value.
-    ##         return self.script_parent
-    
     def get_zone(self):
         """
         Returns the object that is marked as this object's zone.
@@ -790,6 +929,9 @@ class Object(Primitive):
         return [prospect for prospect in self.contents if prospect.name_match(oname)]
 
     # Type comparison methods.
+    # ALL THESE THINGS NEED TO GO AWAY in leu of duck-typing!!!
+
+    # is_player is actually a useful convenience function though
     def is_player(self):
         return session_mgr.sessions_from_object(self) != []
     def is_room(self):    
@@ -1175,34 +1317,6 @@ class Object(Primitive):
         location = self.get_location()
         if location != None:
             location.emit_to_contents("%s has disconnected." % (self.name,), exclude=self)
-
-
-#
-# Base MUD object types 
-#
-
-class Exit(Object):
-    destination = models.ForeignKey(Object, related_name="_destination")
-    def matches(self, txt):
-        alternatives = {}
-        alternatives["n"] = "north"
-        alternatives["s"] = "south"
-        alternatives["e"] = "east"
-        alternatives["w"] = "west"
-        alternatives["nw"] = "northwest"
-        alternatives["sw"] = "southwest"
-        alternatives["ne"] = "northeast"
-        alternatives["se"] = "southeast"
-        alternatives["u"] = "up"
-        alternatives["d"] = "down"
-        if alternatives.has_key(txt.lower()):
-            txt = alternatives[txt.lower()]
-        if self.name.lower() == txt.lower():
-            return True
-        if txt.lower() in map(lambda word: word.lower(), word_list(self.keywords)):
-            return True
-class Thing(Object):
-    pass
 
 # Deferred imports are poopy. This will require some thought to fix.
 from src import cmdhandler
