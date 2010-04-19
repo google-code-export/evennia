@@ -166,7 +166,8 @@ class RedButton(Object):
         This function is called when object is created. Use this
         preferably over __init__.
         """        
-        print "CREEEEEEATING A RED BUTTON"
+        # do the normal stuff that happens when every object is created
+        super(Object, self).at_object_creation()
         # add the object-based commands to the button
         self.add_command("open lid", cmd_open_lid)
         self.add_command("lift lid", cmd_open_lid)

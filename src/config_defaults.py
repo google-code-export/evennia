@@ -460,3 +460,7 @@ try:
     INSTALLED_APPS = INSTALLED_APPS + ('django_extensions',)
 except ImportError:
     pass
+
+RTCLIENT_ENABLED = False
+
+ROOM_SCRIPTLINK = "game.models.Room"

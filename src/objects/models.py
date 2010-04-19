@@ -19,26 +19,23 @@ from src import session_mgr
 
 from src.idmapper.models import SharedMemoryModel as DEFAULT_MODEL
 from src.idmapper.base import SharedMemoryModelBase as DEFAULT_MODEL_BASE
-
+from datetime import datetime
 from src.scripthandler import scriptlink
 
 # Import as the absolute path to avoid local variable clashes.
 from src.util import functions_general
 from django.db.models import signals
 
-# temp debug function
-def dbg(*args):
-    logger.log_errmsg(", ".join(map(str, args)))
-
 from src.objects.PickledObjectField import PickledObjectField
+
+from game.gamesrc.htmlformatting import *
 
 class PrimitiveModelBase(DEFAULT_MODEL_BASE):
     def __call__(cls, *args, **kwargs):
         # new_instance is custom, everything else is cut and paste
         def new_instance():
+            #print "CALLING ", cls, args, kwargs
             x = super(DEFAULT_MODEL_BASE, cls).__call__(*args, **kwargs)
-            dbg("___________________________")
-            dbg("NEW INSTANCE", id(x), x._get_pk_val())
             # go ahead and cache it even before we init it so we don't
             # end up in a recursive loop with primitives initing other prims
             # repeatedly
@@ -46,7 +43,6 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
             x.at_object_creation()
             x.already_created = True
             return x
-        dbg("CALLING ", cls, args, kwargs)
         instance_key = cls._get_cache_key(args, kwargs)
         if instance_key is None:
             return new_instance()
@@ -62,12 +58,14 @@ class PolymorphicPrimitiveForeignKey(models.Field):
     def get_internal_type(self):
         return "IntegerField"
     def to_python(self, value):
+        #print "TO PYTHON", type(self), self, value
         if value is not None:
             if type(value) is int:
-                return Primitive.objects.get(id=value).preferred_object
+                return Primitive.objects.only("preferred_model").get(id=value).preferred_object
             else:
                 return value
     def get_db_prep_value(self, value):
+        #print"DB PREP VAL", type(self), self, value
         if value is not None:
             if hasattr(value, "primitive_ptr"):
                 return value.primitive_ptr.id
@@ -98,20 +96,24 @@ class Primitive(DEFAULT_MODEL):
             self.preferred_model = self.__module__ + "." + self.__class__.__name__
         super(Primitive, self).save(*args, **kwargs)
     def at_object_creation(self):
+        #print "AT OBJECT CREATED", self
         if hasattr(self, "already_created"):
             return
         try:
            nm = self.name
         except:
            nm = "#%s" % self.id
+        #print "NAME WS", nm
         # set up the preferred model from the get-go
         if not self.pk and not self.preferred_model:
             self.preferred_model = self.__module__ + "." + self.__class__.__name__
+        #print "PREFERRED MODULE", self.preferred_model
         # dont add an item to inventory contents if its not the preferred model
         if self is not self.preferred_object:
+        #    print "ALREDY GOT A PREFERRED OBJECT"
             return
+        #print "DIDNT HAVE A PREFERRED OBJECT SO GNNA BE", self, self.preferred_model
         self.already_created = True
-        dbg("CREATING OBJ", nm, self, id(self))
         self.contents = []
         possible_contents = Primitive.objects.filter(_location=self)
         # possible_contents = self._default_manager.filter(_location=self)
@@ -145,11 +147,8 @@ class Primitive(DEFAULT_MODEL):
             try:
                 return mdl.objects.get(primitive_ptr=self.id)
             except:
-                dbg("IMPORTING? DEFAULTING FOR #%s, %s, %s" % (self.id, mdl, dir(self)))
                 return self
         else:
-            #print "DEFAULTING FOR #%s, %s, %s" % (self.id, mdl, dir(self))
-            dbg("DEFAULTING FOR #%s, %s, %s" % (self.id, self, mdl))
             return self
     preferred_object = property(fget=_get_preferred_object)
     def matches(self, txt):
@@ -229,7 +228,7 @@ class Object(Primitive):
                              related_name="obj_home",
                              blank=True, null=True)
     date_created = models.DateField(editable=False,
-                                    auto_now_add=True)
+                                    auto_now_add=True,default=datetime.now)
 
     # state system can set a particular command
     # table to be used (not persistent).
@@ -512,12 +511,15 @@ class Object(Primitive):
         Deletes an object permanently. Observe that this will not  
         """
         # check if this is a player. Kick their session.
+        # can this move into destroy?
         sessions = self.get_sessions()
         for session in sessions:
             session.msg("You have been deleted. Goodbye.")
             session.handle_close()            
         # delete the object 
-        super(Object, self).delete()
+        # don't do any delete if it hasn't been saved to the db
+        if self.pk:
+           super(Primitive, self).delete()
 
     def clear_exits(self):
         """
@@ -1047,7 +1049,7 @@ class Object(Primitive):
                         
         if hasattr(target_obj, "desc"):
             retval = "%s%s\r\n%s%s%s" % ("%ch",
-                target_obj.name,
+                a(target_obj.name),
                 target_obj.desc, lock_msg,
                 "%cn")
         else:

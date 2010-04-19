@@ -299,48 +299,23 @@ def match_exits(command,test=False):
         logger.log_errmsg("cmdhandler.match_exits(): Object '%s' has no location." % 
                           source_object)
         return
-    # TODO, we don't currently match exits
-    return None
     # get all exits at location
     
-    exit_matches = None 
-    if command.command_alternatives:
-        # we have command alternatives (due to spaces in command definition).
-        # if so we replace the command_string appropriately.
-        for cmd_alternative in command.command_alternatives:
-            # the alternatives are ordered longest -> shortest.
-            exit_matches = Object.objects.list_search_object_namestr(exits, 
-                                                                     cmd_alternative[0],
-                                                                     match_type="exact")
-            if exit_matches:
-                command.command_string = cmd_alternative[0]
-                command.command_argument = cmd_alternative[1]
-                break        
-    if not exit_matches:
-        exit_matches = Object.objects.list_search_object_namestr(exits, 
-                                                                 command.command_string, 
-                                                                 match_type="exact")
-    if exit_matches:
-        if test:
-            return True        
-        # Only interested in the first match.
-        targ_exit = exit_matches[0]
-        # An exit's home is its destination. If the exit has a None home value,
-        # it's not traversible.
-        if targ_exit.get_home():                   
-            # SCRIPT: See if the player can traverse the exit
-            if not targ_exit.default_lock(source_object):
-                lock_msg = targ_exit.lock_msg
-                if lock_msg:
-                    source_object.emit_to(lock_msg)
-                else:                    
+    for exit in location.exits:
+        if command.command_string == exit.name:
+            if test:
+                return True        
+            if not exit.default_lock(source_object):
+                if hasattr(exit, lock_msg):
+                    source_object.emit_to(exit.lock_msg)
+                else:
                     source_object.emit_to("You can't traverse that exit.")
             else:
-                source_object.move_to(targ_exit.get_home())
-        else:
-            source_object.emit_to("That exit leads nowhere.")
+                source_object.location = exit.destination
+            break
         # We found a match, kill the command handler.
-        raise ExitCommandHandler
+        #raise ExitCommandHandler
+    return True
     
                
 def command_table_lookup(command, command_table, eval_perms=True,

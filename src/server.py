@@ -72,6 +72,14 @@ class EvenniaService(service.Service):
                     scheduler.add_event(event)
 
         print '-'*50
+ 
+        print "In game timer started."
+        from game.gamesrc.MudTime import incrementTick
+        from twisted.internet.task import LoopingCall
+        repeater = LoopingCall(incrementTick)
+        repeater.start(.05)
+        logger.log_infomsg("Rob's temp in game timer started")
+
 
 
     """
@@ -192,6 +200,20 @@ class EvenniaService(service.Service):
             irc.setName("%s:%s" % ("IRC",settings.IRC_CHANNEL))
             irc.setServiceParent(self.service_collection)
 
+        if settings.RTCLIENT_ENABLED:
+           from twisted.application import strports
+           from nevow import appserver
+           from game.gamesrc.teltola import teltola
+
+           teltolaResource = teltola.createResource()
+           site = appserver.NevowSite(teltolaResource)
+           #application = service.Application("teltola")
+           #strports.service("2300", site).setServiceParent(application)
+           strports.service("2300", site).setServiceParent(self.service_collection)
+           #teltolaResource.setServiceParent(self.service_collection)
+           teltolaResource.serviceParent = self.service_collection
+
 application = service.Application('Evennia')
 mud_service = EvenniaService()
 mud_service.start_services(application)
+

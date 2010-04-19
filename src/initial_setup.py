@@ -17,6 +17,7 @@ from src import scheduler
 from src import events
 from src import gametime
 from game.models import Player, Object
+from scripthandler import scriptlink
 # Main module methods
 
 def create_objects():
@@ -24,7 +25,7 @@ def create_objects():
     Creates the #1 player and Limbo room.
     """
     # Limbo is the initial starting room.
-    limbo_obj = Object.objects.create(name = '%ch%ccLimbo%cn')
+    limbo_obj = scriptlink(settings.ROOM_SCRIPTLINK).objects.create(name = '%ch%ccLimbo%cn')
     limbo_obj.desc = "Welcome to your new %chEvennia%cn-based game. From here you are ready to begin development. If you should need help or would like to participate in community discussions, visit http://evennia.com."
     limbo_obj.save()
     ConfigValue(conf_key="default_home", conf_value=limbo_obj.id).save()
