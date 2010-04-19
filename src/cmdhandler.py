@@ -311,8 +311,8 @@ def match_exits(command,test=False):
                 else:
                     source_object.emit_to("You can't traverse that exit.")
             else:
-                source_object.location = exit.destination
-            break
+                source_object.move_to(exit.destination)
+                return True
         # We found a match, kill the command handler.
         #raise ExitCommandHandler
     return True
