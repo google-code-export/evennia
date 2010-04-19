@@ -45,6 +45,13 @@ class ANSITable(object):
     ansi["return"] = "\r\n"
     ansi["tab"] = "\t"
     ansi["space"] = " "
+   
+    # RTClient Characters
+    ansi["HTML_TOKEN"] = chr(240) 
+    ansi["JAVASCRIPT_TOKEN"] = chr(241) 
+    ansi["UNENCODED_TOKEN"] = chr(242) 
+    ansi["NO_AUTOCHUNK_TOKEN"] = chr(243)
+    ansi["AUTOCHUNK_TOKEN"] = chr(244)
     
 class BaseParser(object):
     def parse_ansi(self, string, strip_ansi=False, strip_formatting=False):
@@ -104,6 +111,11 @@ class MuxANSIParser(BaseParser):
             (r'%cC', ANSITable.ansi["back_cyan"]),
             (r'%cw', ANSITable.ansi["white"]),
             (r'%cW', ANSITable.ansi["back_white"]),
+            (r'%xh', ANSITable.ansi["HTML_TOKEN"]),
+            (r'%xj', ANSITable.ansi["JAVASCRIPT_TOKEN"]),
+            (r'%xu', ANSITable.ansi["UNENCODED_TOKEN"]),
+            (r'%xm', ANSITable.ansi["NO_AUTOCHUNK_TOKEN"]),
+            (r'%xa', ANSITable.ansi["AUTOCHUNK_TOKEN"]),
         ]
 
 class ExtendedANSIParser(MuxANSIParser):

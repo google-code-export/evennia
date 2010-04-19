@@ -85,14 +85,14 @@ def cmd_emit(command):
         args, message = [arg.strip() for arg in args.split('=',1)]
         targets = [arg.strip() for arg in args.split(',')]        
     else:
-        targets = [source_object.get_location().dbref()]
+        targets = [source_object.location.dbref()]
         message = args.strip()
     # we now have a text to send and a list of target names.
     # perform a global search for actual objects
     tobjects = []
     for target in targets:
         if target in ['here']:
-            results = [source_object.get_location()]
+            results = [source_object.location]
         elif target in ['me','my']:
             results = [source_object]
         else:
@@ -325,7 +325,7 @@ def cmd_get(command):
             
     target_obj.move_to(source_object, quiet=True)
     source_object.emit_to("You pick up %s." % (target_obj.name,))
-    source_object.get_location().emit_to_contents("%s picks up %s." % 
+    source_object.location.emit_to_contents("%s picks up %s." % 
                                     (source_object.name, 
                                      target_obj.name), 
                                      exclude=source_object)
@@ -355,13 +355,13 @@ def cmd_drop(command):
         if not target_obj:
             return
 
-    if not source_object == target_obj.get_location():
+    if not source_object == target_obj.location:
         source_object.emit_to("You don't appear to be carrying that.")
         return
         
-    target_obj.move_to(source_object.get_location(), quiet=True)
+    target_obj.move_to(source_object.location, quiet=True)
     source_object.emit_to("You drop %s." % (target_obj.name,))
-    source_object.get_location().emit_to_contents("%s drops %s." % 
+    source_object.location.emit_to_contents("%s drops %s." % 
                                             (source_object.name, 
                                              target_obj.name), 
                                              exclude=source_object)
@@ -428,7 +428,7 @@ def cmd_who(command):
                 # Flags
                 '', \
                 # Location
-                plr_pobject.get_location().id, \
+                plr_pobject.location.id, \
                 player.cmd_total, \
                 # More flags?
                 '', \
@@ -473,8 +473,8 @@ def cmd_say(command):
     # Build the string to emit to neighbors.
     emit_string = "%s says, '%s'" % (source_object.name, 
                                      speech)
-    
-    source_object.get_location().emit_to_contents(emit_string, 
+    source_object.location.at_say(source_object, speech)
+    source_object.location.emit_to_contents(emit_string, 
                                                   exclude=source_object)
 GLOBAL_CMD_TABLE.add_command("say", cmd_say)
 
@@ -497,7 +497,7 @@ def cmd_fsay(command):
 
     # find object
     if target in ['here']:
-        results = [source_object.get_location()]
+        results = [source_object.location]
     elif target in ['me','my']:
         results = [source_object]
     else:
@@ -526,7 +526,7 @@ def cmd_fsay(command):
     # Build the string to emit to neighbors.
     emit_string = "%s says, '%s'" % (target.name, 
                                      speech)    
-    target.get_location().emit_to_contents(emit_string, 
+    target.location.emit_to_contents(emit_string, 
                                                   exclude=source_object)
 GLOBAL_CMD_TABLE.add_command("@fsay", cmd_fsay)
 
@@ -567,7 +567,7 @@ def cmd_pose(command):
         sent_msg = "%s %s" % (source_object.name, 
                               pose_string)
     
-    source_object.get_location().emit_to_contents(sent_msg)
+    source_object.location.emit_to_contents(sent_msg)
 GLOBAL_CMD_TABLE.add_command("pose", cmd_pose)
 
 def cmd_fpose(command):
@@ -594,7 +594,7 @@ def cmd_fpose(command):
     target, pose_string = [arg.strip() for arg in args.split("=",1)]
     # find object
     if target in ['here']:
-        results = [source_object.get_location()]
+        results = [source_object.location]
     elif target in ['me','my']:
         results = [source_object]
     else:
@@ -624,7 +624,7 @@ def cmd_fpose(command):
         sent_msg = "%s %s" % (target.name, 
                               pose_string)
     
-    source_object.get_location().emit_to_contents(sent_msg)
+    source_object.location.emit_to_contents(sent_msg)
 GLOBAL_CMD_TABLE.add_command("@fpose", cmd_fpose)
 
 
@@ -804,3 +804,5 @@ def cmd_apropos(command):
     command.source_object.execute_cmd("help/apropos %s" % arg)
 GLOBAL_CMD_TABLE.add_command("apropos", cmd_apropos)
 GLOBAL_CMD_TABLE.add_command("suggest", cmd_apropos)
+
+# combat stuff

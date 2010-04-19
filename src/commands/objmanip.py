@@ -124,10 +124,10 @@ def cmd_alias(command):
         if source_object.controls_other(target):
             target.ALIAS = new_alias
             source_object.emit_to("Alias '%s' set for %s." % (new_alias, 
-                                                    target.get_name()))
+                                                    target.name))
         else:
             source_object.emit_to("You do not have access to set an alias for %s." % 
-                                                   (target.get_name(),))
+                                                   (target.name,))
     else:
         # Duplicates were found.
         source_object.emit_to("Alias '%s' is already in use." % (new_alias,))
@@ -180,9 +180,9 @@ def cmd_wipe(command):
                                                        exclude_noset=True)
         if attr_matches:
             for attr in attr_matches:
-                target_obj.clear_attribute(attr.get_name())
+                target_obj.clear_attribute(attr.name)
             source_object.emit_to("%s - %d attributes wiped." % (
-                                                        target_obj.get_name(), 
+                                                        target_obj.name, 
                                                         len(attr_matches)))
         else:
             source_object.emit_to("No matching attributes found.")
@@ -190,8 +190,8 @@ def cmd_wipe(command):
         # User didn't specify a wild-card string, wipe entire object.
         attr_matches = target_obj.attribute_namesearch("*", exclude_noset=True)
         for attr in attr_matches:
-            target_obj.clear_attribute(attr.get_name())
-        source_object.emit_to("%s - %d attributes wiped." % (target_obj.get_name(), 
+            target_obj.clear_attribute(attr.name)
+        source_object.emit_to("%s - %d attributes wiped." % (target_obj.name, 
                                                    len(attr_matches)))
 GLOBAL_CMD_TABLE.add_command("@wipe", cmd_wipe,priv_tuple=("objects.wipe",),
                              help_category="Building")
@@ -491,7 +491,10 @@ def cmd_create(command):
         script_parent = eq_args[1].strip()
         mdl = scriptlink(script_parent)
     else:
-        mdl =  Object
+        try:
+           mdl =  scriptlink("game.objects.Object")
+        except:
+            mdl = Object
     # Create and set the object up.
     new_prim = mdl.objects.create(name=target_name, location=source_object, preferred_model=script_parent)
     new_object = new_prim.preferred_object
@@ -922,7 +925,7 @@ def cmd_unlink(command):
             return
 
         target_obj.set_home(None)
-        source_object.emit_to("You have unlinked %s." % target_obj.get_name())
+        source_object.emit_to("You have unlinked %s." % target_obj.name)
 GLOBAL_CMD_TABLE.add_command("@unlink", cmd_unlink,
                              priv_tuple=("objects.dig",), help_category="Building")
 
@@ -1281,9 +1284,9 @@ def cmd_destroy(command):
         if 'instant' in switches or 'now' in switches:
             #sets to GARBAGE right away (makes dbref available)
             target_obj.delete()
-            source_object.emit_to("You destroy %s." % target_obj.get_name())
+            source_object.emit_to("You destroy %s." % target_obj.name)
         else:
-            source_object.emit_to("You schedule %s for destruction." % target_obj.get_name())
+            source_object.emit_to("You schedule %s for destruction." % target_obj.name)
         
 GLOBAL_CMD_TABLE.add_command("@destroy", cmd_destroy,
                              priv_tuple=("objects.create",), help_category="Building")
@@ -1386,9 +1389,9 @@ def cmd_lock(command):
 
     if "list" in switches:        
         if not obj_locks:
-            s = "There are no locks on %s." % obj.get_name()
+            s = "There are no locks on %s." % obj.name
         else:
-            s = "Locks on %s:" % obj.get_name()
+            s = "Locks on %s:" % obj.name
             s += obj_locks.show()
         source_object.emit_to(s)        
         return
@@ -1406,7 +1409,7 @@ def cmd_lock(command):
             else:
                 obj_locks.del_type(ltype)
                 obj.LOCKS = obj_locks
-                source_object.emit_to("Cleared lock %s on %s." % (ltype, obj.get_name()))
+                source_object.emit_to("Cleared lock %s on %s." % (ltype, obj.name))
         else:
             source_object.emit_to("No %s set on this object." % ltype)
         return     
@@ -1417,7 +1420,7 @@ def cmd_lock(command):
         if not keys:
             #add an impassable lock
             obj_locks.add_type(ltype, locks.Key())            
-            source_object.emit_to("Added impassable '%s' lock to %s." % (ltype, obj.get_name()))
+            source_object.emit_to("Added impassable '%s' lock to %s." % (ltype, obj.name))
         else: 
             keys = [k.strip() for k in keys.split(",")]
             obj_keys, group_keys, perm_keys = [], [], []
