@@ -28,8 +28,6 @@ from django.db.models import signals
 
 from src.objects.PickledObjectField import PickledObjectField
 
-from game.gamesrc.htmlformatting import *
-
 class PrimitiveModelBase(DEFAULT_MODEL_BASE):
     """
         This model is the python __metaclass__ for the Primitive
@@ -1191,7 +1189,7 @@ class Object(Primitive):
                         
         if hasattr(target_obj, "desc"):
             retval = "%s%s\r\n%s%s%s" % ("%ch",
-                a(target_obj.name),
+                target_obj.name,
                 target_obj.desc, lock_msg,
                 "%cn")
         else:
