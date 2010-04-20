@@ -16,7 +16,7 @@ from src import session_mgr
 from src import scheduler
 from src import events
 from src import gametime
-from game.models import Player, Object
+#from game.models import Player, Object
 from scripthandler import scriptlink
 # Main module methods
 

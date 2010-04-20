@@ -73,12 +73,12 @@ class EvenniaService(service.Service):
 
         print '-'*50
  
-        print "In game timer started."
-        from game.gamesrc.MudTime import incrementTick
-        from twisted.internet.task import LoopingCall
-        repeater = LoopingCall(incrementTick)
-        repeater.start(.05)
-        logger.log_infomsg("Rob's temp in game timer started")
+        #print "In game timer started."
+        #from game.gamesrc.MudTime import incrementTick
+        #from twisted.internet.task import LoopingCall
+        #repeater = LoopingCall(incrementTick)
+        #repeater.start(.05)
+        #logger.log_infomsg("Rob's temp in game timer started")
 
 
 
