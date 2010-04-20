@@ -3,6 +3,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from src.objects.models import AttributeField
 from src.locks import Locks
+from src.objects.models import PolymorphicPrimitiveForeignKey
 
 class Object(OBJECT):
     LOCKS = AttributeField(default=Locks())
@@ -30,23 +31,26 @@ if red.RedButton._meta.abstract:
 #from rhns import *
 import os.path
 from game.settings import GAME_DIR
-for include_file in ["rhns.py"]:
-    filename = os.path.join(GAME_DIR, "models", include_file)
-    execfile(filename)
+#for include_file in ["rhns.py"]:
+#    filename = os.path.join(GAME_DIR, "models", include_file)
+#    execfile(filename)
 
 class Exit(Object):
     destination = PolymorphicPrimitiveForeignKey(blank=True,null=True,db_index=True)
     #destination = models.ForeignKey(Object,related_name = "_exits")
     #destination = models.IntegerField()
 
-class Player(Combatant):
+class Room(Object):
+    pass
+
+class Player(Object):
     user = models.ForeignKey(User)
     # mush combat
-    MONEY = AttributeField(default=0)
+    #MONEY = AttributeField(default=0)
     # the only thing different from a normal Object is that the session handler expects
     # it to have a user
-    pc = True
-    npc = False
-    pc = False
-    immort = False
-    is_staff = lambda self: self.user.is_staff
+    #pc = True
+    #npc = False
+    #pc = False
+    #immort = False
+    #is_staff = lambda self: self.user.is_staff
