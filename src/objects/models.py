@@ -76,7 +76,7 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
            else:
                meta = attr_meta
            meta.app_label = "game"
-           attrs['meta'] = meta
+           attrs['Meta'] = meta
            return super(DEFAULT_MODEL_BASE, cls).__new__(cls, name, bases, attrs)
     def __call__(cls, *args, **kwargs):
         """
