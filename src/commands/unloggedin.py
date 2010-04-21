@@ -8,7 +8,8 @@ from src import defines_global
 from src.util import functions_general
 from src.cmdtable import GLOBAL_UNCON_CMD_TABLE
 from src.logger import log_errmsg
-from game.models import Player as PLAYER
+from django.conf import settings
+from src.scripthandler import scriptlink
 
 
 def cmd_connect(command):
@@ -16,7 +17,7 @@ def cmd_connect(command):
     This is the connect command at the connection screen. Fairly simple,
     uses the Django database API and User model to make it extremely simple.
     """
-
+    PLAYER_MDL = scriptlink(settings.PLAYER_MDL_SCRIPTLINK)
     session = command.session
 
     # Argument check.
@@ -47,11 +48,11 @@ def cmd_connect(command):
     if not user.check_password(password):
         session.msg("Incorrect password.")
     else:
-        potential_puppets = PLAYER.objects.filter(user=user)
+        potential_puppets = PLAYER_MDL.objects.filter(user=user)
         if potential_puppets:
             puppet = potential_puppets[0]
         else:
-            puppet = PLAYER.objects.create(user=user,name=user.username)
+            puppet = PLAYER_MDL.objects.create(user=user,name=user.username)
             player_start_loc_id = ConfigValue.objects.get_configvalue('player_dbnum_start')
             player_start = Primitive.objects.get(id=player_start_loc_id).preferred_object
             puppet.location = player_start
@@ -64,7 +65,10 @@ def cmd_create(command):
     """
     Handle the creation of new accounts.
     """
+    import pdb
+    pdb.set_trace()
     session = command.session
+    PLAYER_MDL = scriptlink(settings.PLAYER_MDL_SCRIPTLINK)
     
     # Argument check.
     # Fail gracefully if no argument is provided
@@ -106,7 +110,7 @@ def cmd_create(command):
     # TODO - redo alias system
     # Look for any objects with an 'Alias' attribute that matches
     # the requested username
-    #alias_matches = PLAYER.objects.filter(attribute__attr_name__exact="ALIAS", 
+    #alias_matches = PLAYER_MDL.objects.filter(attribute__attr_name__exact="ALIAS", 
     #        attribute__attr_value__iexact=uname).filter()
     if not account.count() == 0:# or not alias_matches.count() == 0:
         session.msg("Sorry, there is already a player with that name.")

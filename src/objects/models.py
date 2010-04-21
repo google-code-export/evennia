@@ -6,6 +6,7 @@ import traceback
 import time
 
 from django.db import models
+from django.db.models.options import Options
 from django.conf import settings
 from src.objects.util import object as util_object
 from src.objects.managers.object import ObjectManager
@@ -61,6 +62,22 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
 	touch very many areas of the code and should not affect
 	game-level code.
     """
+    def __new__(cls, name, bases, attrs):
+           """
+               Force all models descended from Primitive to belong to the game
+               app_label
+           """
+           attr_meta = attrs.pop("Meta", None)
+           if not attr_meta:
+               module = attrs['__module__']
+               super_new = super(PrimitiveModelBase, cls).__new__
+               new_class = super_new(cls, name, bases, {'__module__': module})
+               meta = getattr(new_class, 'Meta', Options({}))
+           else:
+               meta = attr_meta
+           meta.app_label = "game"
+           attrs['meta'] = meta
+           return super(DEFAULT_MODEL_BASE, cls).__new__(cls, name, bases, attrs)
     def __call__(cls, *args, **kwargs):
         """
             Whenver a django model instance is created, if an
@@ -186,8 +203,9 @@ class Primitive(DEFAULT_MODEL):
             pself.location.at_leave(self) # 
             pself.location.contents.remove(self)
         pself._location = location
-        pself.location.contents.append(self)
-        pself.location.at_obj_receive(self)
+        if location:
+           pself.location.contents.append(self)
+           pself.location.at_obj_receive(self)
     location = property(fget=lambda self:self._location,fset=_set_location)
     def save(self, *args, **kwargs):
         """

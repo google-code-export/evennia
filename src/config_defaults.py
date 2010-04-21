@@ -31,7 +31,9 @@ MANAGERS = ADMINS
 BASE_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Path to the game directory (containing the database file if using sqlite).
-GAME_DIR = os.path.join(BASE_PATH, 'game')
+if not vars().has_key('GAME'):
+    GAME = 'game'
+GAME_DIR = os.path.join(BASE_PATH, GAME)
 
 # Logging paths
 LOG_DIR = os.path.join(GAME_DIR, 'logs')
@@ -384,7 +386,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     'django.core.context_processors.auth',
     'django.core.context_processors.media',
     'django.core.context_processors.debug',
-    'game.web.apps.website.webcontext.general_context',
+    '%s.web.apps.website.webcontext.general_context' % GAME,
 )
 
 # Global and Evennia-specific apps. This ties everything together so we can
@@ -405,9 +407,9 @@ INSTALLED_APPS = (
     'src.helpsys',
     'src.genperms',
     'src.cache',
-    'game.web.apps.news',
-    'game.web.apps.website', 
-    'game',
+    '%s.web.apps.news' % GAME,
+    '%s.web.apps.website' % GAME, 
+    GAME,
 )
 
 """
@@ -463,4 +465,5 @@ except ImportError:
 
 RTCLIENT_ENABLED = False
 
-ROOM_SCRIPTLINK = "game.models.Room"
+ROOM_SCRIPTLINK = "gamesrc.models.Room"
+PLAYER_SCRIPTLINK = "gamesrc.models.Player"
