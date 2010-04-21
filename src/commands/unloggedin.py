@@ -13,11 +13,13 @@ from src.scripthandler import scriptlink
 
 
 def cmd_connect(command):
+    import pdb
+    pdb.set_trace()
     """
     This is the connect command at the connection screen. Fairly simple,
     uses the Django database API and User model to make it extremely simple.
     """
-    PLAYER_MDL = scriptlink(settings.PLAYER_MDL_SCRIPTLINK)
+    PLAYER_MDL = scriptlink(settings.PLAYER_SCRIPTLINK)
     session = command.session
 
     # Argument check.
@@ -65,10 +67,8 @@ def cmd_create(command):
     """
     Handle the creation of new accounts.
     """
-    import pdb
-    pdb.set_trace()
     session = command.session
-    PLAYER_MDL = scriptlink(settings.PLAYER_MDL_SCRIPTLINK)
+    PLAYER_MDL = scriptlink(settings.PLAYER_SCRIPTLINK)
     
     # Argument check.
     # Fail gracefully if no argument is provided
