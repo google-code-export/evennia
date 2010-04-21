@@ -34,7 +34,7 @@ def create_objects():
     # ensure there is one and only one user
     god_user, _ = User.objects.get_or_create(is_superuser=True, is_staff=True)
     # Create the matching PLAYER object in the object DB.
-    god_user_obj = Player.objects.create(name=god_user.username,user=god_user)
+    god_user_obj = scriptlink(settings.PLAYER_SCRIPTLINK).objects.create(name=god_user.username,user=god_user)
     god_user_obj.desc = "You are the first player."
     god_user_obj.location = limbo_obj
     god_user_obj.set_home(limbo_obj)
