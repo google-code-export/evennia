@@ -20,12 +20,12 @@ from src import gametime
 from scripthandler import scriptlink
 # Main module methods
 
-def create_objects():
+def create_initial_objects():
     """
     Creates the #1 player and Limbo room.
     """
     # Limbo is the initial starting room.
-    limbo_obj = scriptlink(settings.ROOM_SCRIPTLINK).objects.create(name = '%ch%ccLimbo%cn')
+    limbo_obj = scriptlink(settings.SCRIPT_DEFAULT_OBJECT).objects.create(name = '%ch%ccLimbo%cn')
     limbo_obj.desc = "Welcome to your new %chEvennia%cn-based game. From here you are ready to begin development. If you should need help or would like to participate in community discussions, visit http://evennia.com."
     limbo_obj.save()
     ConfigValue(conf_key="default_home", conf_value=limbo_obj.id).save()
@@ -33,8 +33,10 @@ def create_objects():
     
     # ensure there is one and only one user
     god_user, _ = User.objects.get_or_create(is_superuser=True, is_staff=True)
-    # Create the matching PLAYER object in the object DB.
-    god_user_obj = scriptlink(settings.PLAYER_SCRIPTLINK).objects.create(name=god_user.username,user=god_user)
+
+    # Create the matching PLAYER object in the object DB. 
+    god_user_obj = scriptlink(settings.SCRIPT_DEFAULT_PLAYER).objects.create(name=god_user.username,
+                                                                      user=god_user)
     god_user_obj.desc = "You are the first player."
     god_user_obj.location = limbo_obj
     god_user_obj.set_home(limbo_obj)
@@ -64,7 +66,7 @@ def create_channels():
     """
     Creates some sensible default channels.
     """
-    god_user_obj = Player.objects.get()
+    god_user_obj = scriptlink(settings.SCRIPT_DEFAULT_PLAYER).objects.get() #?
     chan_pub = comsys.create_channel("Public", god_user_obj, 
                                      description="Public Discussion")
     chan_pub.is_joined_by_default = True
@@ -146,7 +148,7 @@ def handle_setup():
     create_config_values()
     create_aliases()
     create_connect_screens()
-    create_objects()
+    create_initial_objects()
     create_groups()
     create_channels()
     import_help_files()

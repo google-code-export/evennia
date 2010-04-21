@@ -47,11 +47,13 @@ def scriptlink(scriptname):
     # to change to. I really wish we didn't have to do this, but there's some
     # strange issue with __import__ and more than two directories worth of
     # nesting.
-    #full_script = "%s.%s" % (settings.SCRIPT_IMPORT_PATH, scriptname)
-    full_script = scriptname
-    script_name = str(full_script.split('.')[-1])
-    script_module = ".".join(full_script.split('.')[0:-1])
 
+    full_script = "%s.%s" % (settings.SCRIPT_IMPORT_PATH, scriptname)
+    #full_script = scriptname
+    script_name = str(full_script.split('.')[-1])
+    print script_name
+    script_module = ".".join(full_script.split('.')[0:-1])
+    print script_module
     try:
         # Change the working directory to the location of the script and import.
         logger.log_infomsg("SCRIPT: Caching and importing %s." % (scriptname))
@@ -60,10 +62,12 @@ def scriptlink(scriptname):
         # Store the module reference for later fast retrieval.
         CACHED_SCRIPTS[scriptname] = mdl
     except ImportError:
+        print 'Error importing %s: %s' % (scriptname, format_exc())
         logger.log_infomsg('Error importing %s: %s' % (scriptname, format_exc()))
         os.chdir(settings.BASE_PATH)
         return
     except OSError:
+        print 'Invalid module path: %s' % (format_exc())
         logger.log_infomsg('Invalid module path: %s' % (format_exc()))
         os.chdir(settings.BASE_PATH)
         return

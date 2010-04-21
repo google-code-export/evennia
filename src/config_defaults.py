@@ -47,13 +47,13 @@ SRC_DIR = os.path.join(BASE_PATH, 'src')
 MEDIA_ROOT = os.path.join(GAME_DIR, 'web', 'media')
 
 # Import style path to the directory holding script parents. Must be in the import path.
-#SCRIPT_IMPORT_PATH = 'game.gamesrc.parents'
+SCRIPT_IMPORT_PATH = 'game.gamesrc.parents'
 # Default parent associated with non-player objects. This starts from where
 # the SCRIPT_IMPORT_PATH left off.
-SCRIPT_DEFAULT_OBJECT = 'base.basicobject'
+SCRIPT_DEFAULT_OBJECT = 'base.Object'
 # Default parent associated with player objects. This starts from where
 # the SCRIPT_IMPORT_PATH left off.
-SCRIPT_DEFAULT_PLAYER = 'base.basicplayer'
+SCRIPT_DEFAULT_PLAYER = 'base.Player'
 # Real path to a directory to be searched for batch scripts for the
 # batch processor. Specify relative evennia's 'game' directory. 
 BATCH_IMPORT_PATH = 'gamesrc/world'
