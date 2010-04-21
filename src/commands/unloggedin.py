@@ -13,8 +13,6 @@ from src.scripthandler import scriptlink
 
 
 def cmd_connect(command):
-    import pdb
-    pdb.set_trace()
     """
     This is the connect command at the connection screen. Fairly simple,
     uses the Django database API and User model to make it extremely simple.
