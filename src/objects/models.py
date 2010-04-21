@@ -408,6 +408,8 @@ class Object(Primitive):
     Almost all specific objects should NOT descend from src.models.objects.Objects
     but from DEFAULT_GAME_OBJECT, currently src.game.models.Object
     """
+
+    
     
     class Meta(PrimitiveModelBase):
         """
