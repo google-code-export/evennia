@@ -47,7 +47,7 @@ SRC_DIR = os.path.join(BASE_PATH, 'src')
 MEDIA_ROOT = os.path.join(GAME_DIR, 'web', 'media')
 
 # Import style path to the directory holding script parents. Must be in the import path.
-SCRIPT_IMPORT_PATH = 'game.gamesrc.parents'
+SCRIPT_IMPORT_PATH = '%s.gamesrc.parents' % GAME
 # Default parent associated with non-player objects. This starts from where
 # the SCRIPT_IMPORT_PATH left off.
 SCRIPT_DEFAULT_OBJECT = 'base.Object'
@@ -465,5 +465,6 @@ except ImportError:
 
 RTCLIENT_ENABLED = False
 
-ROOM_SCRIPTLINK = "gamesrc.models.Room"
-PLAYER_SCRIPTLINK = "gamesrc.models.Player"
+ROOM_SCRIPTLINK = "base.Room"
+PLAYER_SCRIPTLINK = "base.Player"
+OBJECT_SCRIPTLINK = "base.Player"

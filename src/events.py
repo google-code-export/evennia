@@ -17,7 +17,7 @@ from django.conf import settings
 import session_mgr
 from src import scheduler
 from src import defines_global
-from src.objects.models import Object
+from src.objects.models import BaseObject
 from src import logger
 from src import gametime
 
@@ -162,7 +162,7 @@ class IEvt_Destroy_Objects(IntervalEvent):
         """
         This is the function that is fired every self.interval seconds.
         """
-        going_objects = Object.objects.filter(type__exact=defines_global.OTYPE_GOING)
+        going_objects = BaseObject.objects.filter(type__exact=defines_global.OTYPE_GOING)
         for obj in going_objects:
             obj.delete()
 
