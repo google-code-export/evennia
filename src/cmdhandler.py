@@ -12,7 +12,7 @@ import defines_global
 import cmdtable
 import statetable
 import logger
-import comsys
+#import comsys
 import alias_mgr
 
 COMMAND_MAXLEN = settings.COMMAND_MAXLEN
@@ -301,7 +301,7 @@ def match_exits(command,test=False):
         return
     # get all exits at location
     
-    for exit in location.exits:
+    for exit in filter(lambda obj: hasattr(obj, "destination"), location.contents):
         if command.command_string == exit.name:
             if test:
                 return True        
@@ -446,9 +446,9 @@ def handle(command, ignore_state=False):
                         statetable.GLOBAL_STATE_TABLE.get_exec_rights(state)    
 
                 state_lookup = True
-                if match_channel(command):
-                    command_table_lookup(command, cmdtable.GLOBAL_CMD_TABLE)
-                    state_lookup = False
+                #if match_channel(command):
+                #    command_table_lookup(command, cmdtable.GLOBAL_CMD_TABLE)
+                #    state_lookup = False
                 # See if the user is trying to traverse an exit.                
                 if state_allow_exits:
                     match_exits(command)                         
@@ -462,7 +462,7 @@ def handle(command, ignore_state=False):
                 # Not in a state. Normal operation.
                 state = None # make sure, in case the object had a malformed statename.
                 # Check if the user is using a channel command.                    
-                match_channel(command)
+                #match_channel(command)
                 # See if the user is trying to traverse an exit.                
                 match_exits(command)
                 # check if this is a command defined on a nearby object 

@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.models import Group
 from django.conf import settings
 from util import functions_general
-from src.channels.models import CommChannel, CommChannelMembership
+#from src.channels.models import CommChannel, CommChannelMembership
 from src.config.models import ConnectScreen, ConfigValue
 from src import comsys
 import cmdhandler

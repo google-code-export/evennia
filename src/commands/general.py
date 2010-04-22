@@ -4,7 +4,6 @@ now.
 """
 import time
 from django.contrib.auth.models import User
-from src.objects.models import Object
 from src.config.models import ConfigValue
 from src.helpsys.models import HelpEntry
 from src.ansi import ANSITable
@@ -12,6 +11,10 @@ from src import session_mgr
 from src.util import functions_general
 from src.helpsys import helpsystem
 from src.cmdtable import GLOBAL_CMD_TABLE
+
+from settings import OBJECT_SCRIPTLINK
+from src.scripthandler import scriptlink
+OBJECT = scriptlink(OBJECT_SCRIPTLINK)
 
 def cmd_password(command):
     """
@@ -96,7 +99,7 @@ def cmd_emit(command):
         elif target in ['me','my']:
             results = [source_object]
         else:
-            results = Object.objects.global_object_name_search(target)
+            results = OBJECT.objects.global_object_name_search(target)
         if not results:
             source_object.emit_to("No matches found for '%s'." % target)
             return 
@@ -501,7 +504,7 @@ def cmd_fsay(command):
     elif target in ['me','my']:
         results = [source_object]
     else:
-        results = Object.objects.global_object_name_search(target)
+        results = OBJECT.objects.global_object_name_search(target)
     if not results:
         source_object.emit_to("No matches found for '%s'." % target)
         return 
@@ -598,7 +601,7 @@ def cmd_fpose(command):
     elif target in ['me','my']:
         results = [source_object]
     else:
-        results = Object.objects.global_object_name_search(target)
+        results = OBJECT.objects.global_object_name_search(target)
     if not results:
         source_object.emit_to("No matches found for '%s'." % target)
         return 

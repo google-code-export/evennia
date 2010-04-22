@@ -34,6 +34,7 @@ def scriptlink(scriptname):
     
     scriptname: (str) Name of the module to load (minus 'scripts').
     """
+    assert(not scriptname.startswith("game."))
     # The module is already cached, just return it rather than re-load.
     retval = CACHED_SCRIPTS.get(scriptname, False)
     if retval:
@@ -51,9 +52,8 @@ def scriptlink(scriptname):
     full_script = "%s.%s" % (settings.SCRIPT_IMPORT_PATH, scriptname)
     #full_script = scriptname
     script_name = str(full_script.split('.')[-1])
-    print script_name
     script_module = ".".join(full_script.split('.')[0:-1])
-    print script_module
+    print "%s/%s/%s/%s" % (scriptname, full_script, script_module, script_name)
     try:
         # Change the working directory to the location of the script and import.
         logger.log_infomsg("SCRIPT: Caching and importing %s." % (scriptname))

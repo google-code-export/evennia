@@ -6,9 +6,8 @@ lock tries the tested object/player against these criteria and returns
 a True/False result. 
 """
 
-from src.objects.models import Object 
-
 class Key(object):
+
     """
     This implements a lock key.
     
@@ -159,12 +158,13 @@ class FuncKey(Key):
         return string.strip()
 
     def check(self, obj):
+        from src.objects.models import BaseObject 
         "Checks object against the stored locks."
         if self.impassable:
             return self.invert_result
 
         # we need the locked object since the lock-function is defined on it. 
-        lock_obj = Object.objects.dbref_search(self.extra)
+        lock_obj = BaseObject.objects.dbref_search(self.extra)
         if not lock_obj:
             return self.invert_result
 

@@ -17,6 +17,7 @@ from src import defines_global
 from src import session_mgr
 from src import logger
 from src import session_mgr
+from src.locks import Locks
 
 from src.idmapper.models import SharedMemoryModel as DEFAULT_MODEL
 from src.idmapper.base import SharedMemoryModelBase as DEFAULT_MODEL_BASE
@@ -88,24 +89,6 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
             if not hasattr(meta, "app_label"):
                 meta.app_label = "game"
         return super(PrimitiveModelBase, cls).__new__(cls, name, bases, attrs)
-    def Y__new__(typ, *args, **kwargs):
-        return DEFAULT_MODEL_BASE.__new__(typ, *args, **kwargs)
-        #obj.attr1 = []
-        #return obj
-    def X__new__(cls, name, bases, attrs):
-           attr_meta = attrs.pop("Meta", None)
-           if not attr_meta:
-               module = attrs['__module__']
-               super_new = super(PrimitiveModelBase, cls).__new__
-               new_class = super_new(cls, name, bases, {'__module__': module})
-               meta = getattr(new_class, 'Meta', Options({}))
-               class NewMeta:
-                   def __init__(self):
-                      self.app_label = "game"
-               meta = getattr(new_class, 'Meta', NewMeta())
-           else:
-               meta = attr_meta
-           return super(PrimitiveModelBase, cls).__new__(cls, name, bases, attrs)
     def __call__(cls, *args, **kwargs):
         """
             Whenver a django model instance is created, if an
@@ -245,8 +228,12 @@ class Primitive(DEFAULT_MODEL):
 	    preferred_modl is False.
 	"""
         if not self.pk and not self.preferred_model:
-            self.preferred_model = self.__module__ + "." + self.__class__.__name__
+            self.preferred_model = self.guessModelName()
         super(Primitive, self).save(*args, **kwargs)
+    def guessModelName(self):
+        cruft_len = len(settings.SCRIPT_IMPORT_PATH) + 1
+        full_name = self.__module__ + "." + self.__class__.__name__
+        return full_name[cruft_len:]
     def at_object_creation(self):
         """
            Called the first time a model instance with a given primary key is
@@ -269,7 +256,7 @@ class Primitive(DEFAULT_MODEL):
 
         # if an object has no preferred_model try to figure out what it should be
         if not self.pk and not self.preferred_model:
-            self.preferred_model = self.__module__ + "." + self.__class__.__name__
+            self.preferred_model = self.guessModelName()
 
         # dont do anything its not the preferred model
         if self is not self.preferred_object:
@@ -481,10 +468,12 @@ class BaseObject(Primitive):
         """
         return "#%s" % str(self.id)
 
+    # some legacy cruft that needs to move out of src
+    LOCKS = AttributeField(default=Locks())
+    SAFE = AttributeField(default=False)
     def matches(self, txt):
         if txt.lower() == self.name.lower():
             return True
-        
     #
     # BEGIN COMMON METHODS
     # 
@@ -1105,7 +1094,7 @@ class BaseObject(Primitive):
         you'd like to set attributes, or do anything when the object
         is created, do it here and not in __init__().
         """
-        x = super(Object, self).at_object_creation()
+        x = super(BaseObject, self).at_object_creation()
     
     def at_object_destruction(self, pobject=None):
         """
@@ -1333,7 +1322,7 @@ class BaseObject(Primitive):
         """
         
         # Load the player's channels from their JSON __CHANLIST attribute.
-        comsys.load_object_channels(self)
+        #comsys.load_object_channels(self)
         self.Last = "%s" % (time.strftime("%a %b %d %H:%M:%S %Y", time.localtime()),)
         self.Lastsite = "%s" % (session.address[0],)
         self.CONNECTED = True
@@ -1368,4 +1357,4 @@ class BaseObject(Primitive):
 
 # Deferred imports are poopy. This will require some thought to fix.
 from src import cmdhandler
-from src import comsys
+#from src import comsys
