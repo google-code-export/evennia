@@ -28,6 +28,7 @@ from src.util import functions_general
 from django.db.models import signals
 
 from src.objects.PickledObjectField import PickledObjectField
+from django.db.models.base import ModelBase
 
 class PrimitiveModelBase(DEFAULT_MODEL_BASE):
     """
@@ -63,10 +64,35 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
 	game-level code.
     """
     def __new__(cls, name, bases, attrs):
-           """
-               Force all models descended from Primitive to belong to the game
-               app_label
-           """
+        """
+           Force all models descended from Primitive to belong to the game
+           app_label
+        """
+        super_new = super(ModelBase, cls).__new__
+        parents = [b for b in bases if isinstance(b, PrimitiveModelBase)]
+        # TODO, for multi-base classes we will need to do some work here
+        #if not parents:
+        #    return super_new(cls, name, bases, attrs)
+        attr_meta = attrs.pop("Meta", None)
+        if not attr_meta:
+            module = attrs['__module__']
+            new_class = super_new(cls, name, bases, {'__module__': module})
+            meta = getattr(new_class, 'Meta', Options({}))
+            class NewMeta:
+                def __init__(self):
+                   self.app_label = "game"
+            meta = getattr(new_class, 'Meta', NewMeta())
+            attrs["Meta"] = meta
+        else:
+            meta = attr_meta
+            if not hasattr(meta, "app_label"):
+                meta.app_label = "game"
+        return super(PrimitiveModelBase, cls).__new__(cls, name, bases, attrs)
+    def Y__new__(typ, *args, **kwargs):
+        return DEFAULT_MODEL_BASE.__new__(typ, *args, **kwargs)
+        #obj.attr1 = []
+        #return obj
+    def X__new__(cls, name, bases, attrs):
            attr_meta = attrs.pop("Meta", None)
            if not attr_meta:
                module = attrs['__module__']
@@ -303,6 +329,8 @@ class Attribute(DEFAULT_MODEL):
 	adding AttributeField to Django models descended from primitive.
 	
     """
+    #import pdb
+    #pdb.set_trace()
     primitive = models.ForeignKey(Primitive, related_name="_attributes")
     name = models.CharField(max_length=255)
     value = PickledObjectField()
@@ -392,7 +420,7 @@ class AttributeField(object):
 
 
 
-class Object(Primitive):
+class BaseObject(Primitive):
     """
     The Object class is very generic representation of a THING, PLAYER, EXIT,
     ROOM, or other entity which as a meaningful location.

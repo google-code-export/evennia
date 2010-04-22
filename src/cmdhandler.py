@@ -7,7 +7,7 @@ something.
 from traceback import format_exc
 from django.conf import settings
 #from django.contrib.contenttypes.models import ContentType
-from objects.models import Object
+from objects.models import BaseObject
 import defines_global
 import cmdtable
 import statetable
