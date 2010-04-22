@@ -4,9 +4,9 @@
 
 from django.db import models
 from django.contrib.auth.models import User
-from src.objects.models import Object as ObjectBase
+from src.objects.models import BaseObject
 
-class Player(ObjectBase):
+class Player(BaseObject):
     user = models.ForeignKey(User)
     #TODO: Add stub functions
 
@@ -14,9 +14,6 @@ class Player(ObjectBase):
 # The base in-game non-player object.
 #------------------------------------------------------------
 
-class Object(ObjectBase):
+class Object(BaseObject):
     #TODO: Add stub functions
     pass 
-
-
-    
