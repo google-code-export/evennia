@@ -72,17 +72,14 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
                module = attrs['__module__']
                super_new = super(PrimitiveModelBase, cls).__new__
                new_class = super_new(cls, name, bases, {'__module__': module})
-               #meta = getattr(new_class, 'Meta', Options({}))
+               meta = getattr(new_class, 'Meta', Options({}))
                class NewMeta:
                    def __init__(self):
                       self.app_label = "game"
                meta = getattr(new_class, 'Meta', NewMeta())
-               print "HANDLING ", name, dir(meta)
            else:
                meta = attr_meta
-           meta.app_label = "game"
-           attrs['Meta'] = meta
-           return super(DEFAULT_MODEL_BASE, cls).__new__(cls, name, bases, attrs)
+           return super(PrimitiveModelBase, cls).__new__(cls, name, bases, attrs)
     def __call__(cls, *args, **kwargs):
         """
             Whenver a django model instance is created, if an
