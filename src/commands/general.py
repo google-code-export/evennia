@@ -12,9 +12,9 @@ from src.util import functions_general
 from src.helpsys import helpsystem
 from src.cmdtable import GLOBAL_CMD_TABLE
 
-from settings import OBJECT_SCRIPTLINK
+from settings import SCRIPT_DEFAULT_OBJECT
 from src.scripthandler import scriptlink
-OBJECT = scriptlink(OBJECT_SCRIPTLINK)
+OBJECT = scriptlink(SCRIPT_DEFAULT_OBJECT)
 
 def cmd_password(command):
     """

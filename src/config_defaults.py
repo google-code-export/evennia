@@ -465,6 +465,5 @@ except ImportError:
 
 RTCLIENT_ENABLED = False
 
-ROOM_SCRIPTLINK = "base.Room"
-PLAYER_SCRIPTLINK = "base.Player"
-OBJECT_SCRIPTLINK = "base.Player"
+SCRIPT_DEFAULT_ROOM = 'base.Room'
+SCRIPT_DEFAULT_EXIT = 'base.Exit'
