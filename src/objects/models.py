@@ -32,14 +32,14 @@ from django.db.models import signals
 from src.objects.PickledObjectField import PickledObjectField
 from django.db.models.base import ModelBase
 
-class DEFAULT_MODEL_BASE(SharedMemoryModelBase):
+class ForcedAppBase(SharedMemoryModelBase):
     def __new__(cls, name, bases, attrs):
         """
            Force all models descended from Primitive to belong to the game
            app_label
         """
         super_new = super(ModelBase, cls).__new__
-        parents = [b for b in bases if isinstance(b, DEFAULT_MODEL_BASE)]
+        parents = [b for b in bases if isinstance(b, ForcedAppBase)]
         # TODO, for multi-base classes we will need to do some work here
         #if not parents:
         #    return super_new(cls, name, bases, attrs)
@@ -57,10 +57,15 @@ class DEFAULT_MODEL_BASE(SharedMemoryModelBase):
             meta = attr_meta
             if not hasattr(meta, "app_label"):
                 meta.app_label = "game"
-        return super(DEFAULT_MODEL_BASE, cls).__new__(cls, name, bases, attrs)
+        return super(ForcedAppBase, cls).__new__(cls, name, bases, attrs)
 
-class DEFAULT_MODEL(SharedMemoryModel):
-    __metaclass__ = DEFAULT_MODEL_BASE
+class ForcedAppModel(SharedMemoryModel):
+    __metaclass__ = ForcedAppBase
+    class Meta:
+        abstract = True
+
+DEFAULT_MODEL = ForcedAppModel
+DEFAULT_MODEL_BASE = ForcedAppBase
 
 class PrimitiveModelBase(DEFAULT_MODEL_BASE):
     """
