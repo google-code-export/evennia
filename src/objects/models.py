@@ -19,8 +19,9 @@ from src import logger
 from src import session_mgr
 from src.locks import Locks
 
-from src.idmapper.models import SharedMemoryModel as DEFAULT_MODEL
-from src.idmapper.base import SharedMemoryModelBase as DEFAULT_MODEL_BASE
+from src.idmapper.models import SharedMemoryModel
+from src.idmapper.base import SharedMemoryModelBase
+
 from datetime import datetime
 from src.scripthandler import scriptlink
 
@@ -30,6 +31,36 @@ from django.db.models import signals
 
 from src.objects.PickledObjectField import PickledObjectField
 from django.db.models.base import ModelBase
+
+class DEFAULT_MODEL_BASE(SharedMemoryModelBase):
+    def __new__(cls, name, bases, attrs):
+        """
+           Force all models descended from Primitive to belong to the game
+           app_label
+        """
+        super_new = super(ModelBase, cls).__new__
+        parents = [b for b in bases if isinstance(b, DEFAULT_MODEL_BASE)]
+        # TODO, for multi-base classes we will need to do some work here
+        #if not parents:
+        #    return super_new(cls, name, bases, attrs)
+        attr_meta = attrs.pop("Meta", None)
+        if not attr_meta:
+            module = attrs['__module__']
+            new_class = super_new(cls, name, bases, {'__module__': module})
+            meta = getattr(new_class, 'Meta', Options({}))
+            class NewMeta:
+                def __init__(self):
+                   self.app_label = "game"
+            meta = getattr(new_class, 'Meta', NewMeta())
+            attrs["Meta"] = meta
+        else:
+            meta = attr_meta
+            if not hasattr(meta, "app_label"):
+                meta.app_label = "game"
+        return super(DEFAULT_MODEL_BASE, cls).__new__(cls, name, bases, attrs)
+
+class DEFAULT_MODEL(SharedMemoryModel):
+    __metaclass__ = DEFAULT_MODEL_BASE
 
 class PrimitiveModelBase(DEFAULT_MODEL_BASE):
     """
@@ -64,31 +95,6 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
 	touch very many areas of the code and should not affect
 	game-level code.
     """
-    def __new__(cls, name, bases, attrs):
-        """
-           Force all models descended from Primitive to belong to the game
-           app_label
-        """
-        super_new = super(ModelBase, cls).__new__
-        parents = [b for b in bases if isinstance(b, PrimitiveModelBase)]
-        # TODO, for multi-base classes we will need to do some work here
-        #if not parents:
-        #    return super_new(cls, name, bases, attrs)
-        attr_meta = attrs.pop("Meta", None)
-        if not attr_meta:
-            module = attrs['__module__']
-            new_class = super_new(cls, name, bases, {'__module__': module})
-            meta = getattr(new_class, 'Meta', Options({}))
-            class NewMeta:
-                def __init__(self):
-                   self.app_label = "game"
-            meta = getattr(new_class, 'Meta', NewMeta())
-            attrs["Meta"] = meta
-        else:
-            meta = attr_meta
-            if not hasattr(meta, "app_label"):
-                meta.app_label = "game"
-        return super(PrimitiveModelBase, cls).__new__(cls, name, bases, attrs)
     def __call__(cls, *args, **kwargs):
         """
             Whenver a django model instance is created, if an
@@ -180,7 +186,7 @@ class PreferredModel(models.CharField):
         kwargs['max_length'] = 255
         super(models.CharField, self).__init__(*args, **kwargs)
 
-class Primitive(DEFAULT_MODEL):
+class Primitive(SharedMemoryModel):
     """
        The model from which all in-game objects (objects that have a
        meaningful .location field) are descended from. Primitives
@@ -297,6 +303,7 @@ class Primitive(DEFAULT_MODEL):
             return self
         scriptname = self.preferred_model
         mdl = scriptlink(scriptname)
+        print "HNTING FOR PRIM %s from %s" % (self.id, "HRM")
         if hasattr(mdl, "primitive_ptr") and self.id and self.preferred_model:
             try:
                 return mdl.objects.get(primitive_ptr=self.id)
@@ -423,7 +430,7 @@ class BaseObject(Primitive):
 
     
     
-    class Meta(PrimitiveModelBase):
+    class Meta:
         """
         Define permission types on the object class and
         how it is ordered in the database.
