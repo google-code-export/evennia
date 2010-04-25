@@ -1247,12 +1247,29 @@ class BaseObject(Primitive):
             retval = "%s%s%s" % ("%ch",
                                  target_obj.name,
                                  "%cn")
-        if self.contents:
-            retval += "\n\r%sYou see:%s" % (ANSITable.ansi["hilite"], 
-                                            ANSITable.ansi["normal"])
-            for obj in self.contents:
-                retval +='\n\r%s' % (obj.name,)
-            
+
+        con_players = []
+        con_things = []
+        con_exits = []
+
+        for obj in self.contents:
+            if not obj.visible_lock(pobject):
+                pass
+            elif obj == pobject:
+                pass
+            elif obj.is_player():
+                con_players.append(obj)
+            elif hasattr(obj, "destination"):
+                con_exits.append(obj)
+            else:
+                con_things.append(obj)
+        
+        for desc, objs in [("Players", con_players),("You see", con_things),("Exits", con_exits)]:
+            if objs:
+		retval += "\n\r%s%s:%s" % (ANSITable.ansi["hilite"], desc, ANSITable.ansi["normal"])
+		for obj in objs:
+		    retval +='\n\r%s' % obj.name
+		    
         return retval
 
     def default_lock(self, pobject):
