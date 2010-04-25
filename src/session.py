@@ -109,6 +109,7 @@ class SessionProtocol(StatefulTelnetProtocol):
         """
         Break the connection and do some accounting.
         """
+        # TODO: this gets called more than once when we QUIT so setting puppet = False
         if self.puppet:
 
             #call hook function
@@ -118,6 +119,7 @@ class SessionProtocol(StatefulTelnetProtocol):
                         
             self.user.last_login = datetime.now()
             self.user.save()
+            self.puppet = False
             
         self.disconnectClient()
         self.logged_in = False
@@ -152,8 +154,7 @@ class SessionProtocol(StatefulTelnetProtocol):
         self.conn_time = time.time()
         
         #session_mgr.disconnect_duplicate_session(self)
-
-        puppet.at_pre_login(self)
+        puppet.at_pre_login()
         
         logger.log_infomsg("Logged in: %s" % self)
         self.cemit_info('Logged in: %s' % self)

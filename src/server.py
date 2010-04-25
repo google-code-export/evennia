@@ -207,13 +207,9 @@ class EvenniaService(service.Service):
 
            teltolaResource = teltola.createResource()
            site = appserver.NevowSite(teltolaResource)
-           #application = service.Application("teltola")
-           #strports.service("2300", site).setServiceParent(application)
            strports.service("2300", site).setServiceParent(self.service_collection)
-           #teltolaResource.setServiceParent(self.service_collection)
            teltolaResource.serviceParent = self.service_collection
 
 application = service.Application('Evennia')
 mud_service = EvenniaService()
 mud_service.start_services(application)
-

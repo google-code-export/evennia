@@ -57,6 +57,7 @@ class ForcedAppBase(SharedMemoryModelBase):
             meta = attr_meta
             if not hasattr(meta, "app_label"):
                 meta.app_label = "game"
+            attrs["Meta"] = meta
         return super(ForcedAppBase, cls).__new__(cls, name, bases, attrs)
 
 class ForcedAppModel(SharedMemoryModel):
@@ -175,7 +176,7 @@ class PolymorphicPrimitiveForeignKey(models.Field):
             else:
                 return value
     def get_db_prep_value(self, value):
-        if value is not None:
+        if value:
             if hasattr(value, "primitive_ptr"):
                 return value.primitive_ptr.id
             else:
@@ -308,7 +309,6 @@ class Primitive(SharedMemoryModel):
             return self
         scriptname = self.preferred_model
         mdl = scriptlink(scriptname)
-        print "HNTING FOR PRIM %s from %s" % (self.id, "HRM")
         if hasattr(mdl, "primitive_ptr") and self.id and self.preferred_model:
             try:
                 return mdl.objects.get(primitive_ptr=self.id)
