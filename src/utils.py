@@ -72,29 +72,29 @@ log_infomsg = logger.log_infomsg
 
 # def get_object_from_dbref(dbref):
 #    Returns an object when given a dbref.
-#get_object_from_dbref = OBJECT.objects.get_object_from_dbref
+get_object_from_dbref = OBJECT.objects.get_object_from_dbref
 
 # def dbref_search(dbref_string, limit_types=False):
 #    Searches for a given dbref.
-#dbref_search = OBJECT.objects.dbref_search
+dbref_search = OBJECT.objects.dbref_search
 
 # def global_object_name_search(ostring, exact_match=True, limit_types=[]):
 #    Searches through all objects for a name match.
-#global_object_name_search = OBJECT.objects.global_object_name_search
+global_object_name_search = OBJECT.objects.global_object_name_search
 
 # def global_object_script_parent_search(script_parent):
 #    Searches through all objects returning those which has a certain script parent.
-#global_object_script_parent_search = OBJECT.objects.global_object_script_parent_search
+global_object_script_parent_search = OBJECT.objects.global_object_script_parent_search
 
 # def player_name_search(searcher, ostring):
 #    Search players by name.
-#player_name_search = OBJECT.objects.player_name_search
+player_name_search = OBJECT.objects.player_name_search
 
 # def local_and_global_search(searcher, ostring, search_contents=True, 
 #                             search_location=True, dbref_only=False, 
 #                             limit_types=False, attribute_name=None):
 #    Searches an object's location then globally for a dbref or name match.
-#local_and_global_search = OBJECT.objects.local_and_global_search
+local_and_global_search = OBJECT.objects.local_and_global_search
 
 
 
@@ -120,4 +120,4 @@ log_infomsg = logger.log_infomsg
 
 ## # def is_dbref(self, dbstring, require_pound=True):
 ## #    Is the input a well-formed dbref number?
-#is_dbref = OBJECT.objects.is_dbref
+is_dbref = OBJECT.objects.is_dbref

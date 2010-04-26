@@ -804,4 +804,18 @@ def cmd_apropos(command):
 GLOBAL_CMD_TABLE.add_command("apropos", cmd_apropos)
 GLOBAL_CMD_TABLE.add_command("suggest", cmd_apropos)
 
-# combat stuff
+
+def cmd_test(command):
+    """
+    test_command, for devs
+
+    Usage:
+       test
+
+    This does different things depending on what we are testing. 
+    """
+    from src import utils
+    ans = utils.is_dbref("#1")
+    command.source_object.emit_to("The answer is: %s" % ans)
+
+GLOBAL_CMD_TABLE.add_command("test", cmd_test)
