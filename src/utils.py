@@ -18,11 +18,25 @@ object offers. The object model is defined in src/objects/models.py.
 from django.conf import settings as in_settings
 from src import logger
 from src import scheduler as in_scheduler
-from src.objects.models import Object
+#from src.objects.models import Object
 from src import defines_global
 from src.cmdtable import GLOBAL_CMD_TABLE as in_GLOBAL_CMD_TABLE
 from src.statetable import GLOBAL_STATE_TABLE as in_GLOBAL_STATE_TABLE
 from src.events import IntervalEvent as in_IntervalEvent 
+
+
+from src.scripthandler import scriptlink
+from settings import SCRIPT_DEFAULT_OBJECT
+from settings import SCRIPT_DEFAULT_PLAYER
+
+print "In utils.py: creating references"
+# Store references to the main base objects
+try:
+    OBJECT = scriptlink(SCRIPT_DEFAULT_OBJECT)
+    PLAYER = scriptlink(SCRIPT_DEFAULT_PLAYER)
+except:
+    logger.log_errmsg("utils.py: Error in referencing base objects.")
+    raise     
 
 #------------------------------------------------------------
 # Import targets
@@ -35,9 +49,6 @@ GLOBAL_STATE_TABLE = in_GLOBAL_STATE_TABLE
 # Events 
 scheduler = in_scheduler
 IntervalEvent = in_IntervalEvent
-
-# Base objects 
-
 
 
 #------------------------------------------------------------
@@ -61,29 +72,29 @@ log_infomsg = logger.log_infomsg
 
 # def get_object_from_dbref(dbref):
 #    Returns an object when given a dbref.
-get_object_from_dbref = Object.objects.get_object_from_dbref
+#get_object_from_dbref = OBJECT.objects.get_object_from_dbref
 
 # def dbref_search(dbref_string, limit_types=False):
 #    Searches for a given dbref.
-dbref_search = Object.objects.dbref_search
+#dbref_search = OBJECT.objects.dbref_search
 
 # def global_object_name_search(ostring, exact_match=True, limit_types=[]):
 #    Searches through all objects for a name match.
-global_object_name_search = Object.objects.global_object_name_search
+#global_object_name_search = OBJECT.objects.global_object_name_search
 
 # def global_object_script_parent_search(script_parent):
 #    Searches through all objects returning those which has a certain script parent.
-global_object_script_parent_search = Object.objects.global_object_script_parent_search
+#global_object_script_parent_search = OBJECT.objects.global_object_script_parent_search
 
 # def player_name_search(searcher, ostring):
 #    Search players by name.
-player_name_search = Object.objects.player_name_search
+#player_name_search = OBJECT.objects.player_name_search
 
 # def local_and_global_search(searcher, ostring, search_contents=True, 
 #                             search_location=True, dbref_only=False, 
 #                             limit_types=False, attribute_name=None):
 #    Searches an object's location then globally for a dbref or name match.
-local_and_global_search = Object.objects.local_and_global_search
+#local_and_global_search = OBJECT.objects.local_and_global_search
 
 
 
@@ -96,17 +107,17 @@ local_and_global_search = Object.objects.local_and_global_search
 # is_X() function, like is_superuser(), is_thing(),
 # is_room(), is_player(), is_exit() and get_type().
         
-OTYPE_NOTHING = defines_global.OTYPE_NOTHING 
-OTYPE_PLAYER = defines_global.OTYPE_PLAYER
-OTYPE_ROOM = defines_global.OTYPE_ROOM
-OTYPE_THING = defines_global.OTYPE_THING
-OTYPE_EXIT = defines_global.OTYPE_EXIT
-OTYPE_GOING = defines_global.OTYPE_GOING
-TYPE_GARBAGE = defines_global.OTYPE_GARBAGE 
+## OTYPE_NOTHING = defines_global.OTYPE_NOTHING 
+## OTYPE_PLAYER = defines_global.OTYPE_PLAYER
+## OTYPE_ROOM = defines_global.OTYPE_ROOM
+## OTYPE_THING = defines_global.OTYPE_THING
+## OTYPE_EXIT = defines_global.OTYPE_EXIT
+## OTYPE_GOING = defines_global.OTYPE_GOING
+## TYPE_GARBAGE = defines_global.OTYPE_GARBAGE 
 
-NOPERMS_MSG = defines_global.NOPERMS_MSG
-NOCONTROL_MSG = defines_global.NOCONTROL_MSG
+## NOPERMS_MSG = defines_global.NOPERMS_MSG
+## NOCONTROL_MSG = defines_global.NOCONTROL_MSG
 
-# def is_dbref(self, dbstring, require_pound=True):
-#    Is the input a well-formed dbref number?
-is_dbref = Object.objects.is_dbref
+## # def is_dbref(self, dbstring, require_pound=True):
+## #    Is the input a well-formed dbref number?
+#is_dbref = OBJECT.objects.is_dbref

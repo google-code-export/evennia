@@ -2,7 +2,7 @@
 These commands typically are to do with building or modifying Objects.
 """
 from django.contrib.auth.models import Permission, Group
-from src.objects.models import Object, Attribute
+from src.objects.models import BaseObject, Attribute
 # We'll import this as the full path to avoid local variable clashes.
 from src import locks
 from src import ansi
@@ -10,7 +10,8 @@ from src.cmdtable import GLOBAL_CMD_TABLE
 from src import defines_global
 from src.ansi import ANSITable
 from src.scripthandler import scriptlink
-from src.objects import reimport
+from src import reimport
+from src.utils import OBJECT as Object 
 
 def cmd_teleport(command):
     """

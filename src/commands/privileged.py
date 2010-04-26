@@ -7,7 +7,8 @@ from django.contrib.auth.models import Permission, Group, User
 from django.conf import settings
 from django.db.models.loading import AppCache
 from django.utils.datastructures import SortedDict
-from src.objects.models import Object
+#from src.objects.models import Object
+from src.utils import OBJECT as Object 
 from src import session_mgr
 from src import comsys
 from src.cmdtable import GLOBAL_CMD_TABLE
@@ -16,7 +17,7 @@ from src.helpsys import helpsystem
 from src.config.models import CommandAlias
 from src.config import edit_aliases
 from src import scheduler
-import src.objects.reimport
+from src import reimport
 
 def OLDcmd_reload(command):
     """

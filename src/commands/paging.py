@@ -1,7 +1,8 @@
 """
 Paging command and support functions.
 """
-from src.objects.models import Object
+#from src.objects.models import Object
+from src.utils import OBJECT as Object 
 from src.cmdtable import GLOBAL_CMD_TABLE
 
 def get_last_paged_objects(source_object):

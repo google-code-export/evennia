@@ -1,7 +1,8 @@
 """
 This module handles some of the -reply packets like whois-reply.
 """
-from src.objects.models import Object
+from src.utils import OBJECT as Object 
+#from src.objects.models import Object
 from src.imc2 import imc_ansi
 
 def handle_whois_reply(packet):

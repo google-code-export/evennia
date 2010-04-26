@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from src.objects.models import BaseObject
-
+from src.objects.managers.object import ObjectManager
 #------------------------------------------------------------
 # The base player object
 #------------------------------------------------------------
@@ -16,6 +16,7 @@ class Player(BaseObject):
 
 class Object(BaseObject):
     #TODO: Add stub functions
+    #objects = ObjectManager()        
     pass 
 
 #------------------------------------------------------------

@@ -35,9 +35,13 @@ from django.db.models.base import ModelBase
 class ForcedAppBase(SharedMemoryModelBase):
     def __new__(cls, name, bases, attrs):
         """
-           Force all models descended from Primitive to belong to the game
-           app_label
+           Force all models descended from this object to belong to the correct
+           app_label (default is 'game'). Django uses this to group all different
+           models under one application. With this we could also run several
+           game versions or completely different games (with folders game, game2,
+           game3 etc) using the same game engine at the same time should we so desire.
         """
+        #print "ForcedAppBase __new__(%s, %s, %s, %s)" % (cls, name, bases, attrs)
         super_new = super(ModelBase, cls).__new__
         parents = [b for b in bases if isinstance(b, ForcedAppBase)]
         # TODO, for multi-base classes we will need to do some work here
@@ -117,6 +121,7 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
 	    will have at_object_creation called on it.
 
 	"""
+        #print "PrimitiveModelBase __call__(%s,%s,%s)" % (cls, args, kwargs)
         # new_instance is custom, everything else is cut and paste
         def new_instance():
 	    """
@@ -130,7 +135,9 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
                 After the object is created and cached it runs
 		the object's at_object_creation.
             """
+            #print "PrimitiveModelBase new_instance()"
             x = super(DEFAULT_MODEL_BASE, cls).__call__(*args, **kwargs)
+            #print "Instance created: %s" % x.__class__
             # go ahead and cache it even before we init it so we don't
             # end up in a recursive loop with primitives initing other prims
             # repeatedly
@@ -158,11 +165,11 @@ class PolymorphicPrimitiveForeignKey(models.Field):
 	 For example, if you have a Primitive id=3 that has a preferred
 	 model of Lion, and Lion descends from Cat which descends from
 	 Beast which descends from Animal, you can do self.killed_me = lion
-	 and it will store 3 in the datagbase, save the model, reboot the
-	 server, and next tim eyou load a model, type of
-	 (mdl_instance.killed_me) will be Lion instance, not integer.
+	 and it will store 3 in the database, save the model, reboot the
+	 server, and next time you load a model, type of
+	 (mdl_instance.killed_me) will be a Lion instance, not an integer.
 
-	 Used by Primitive._location to store what containers objects are
+	 Used e.g. by Primitive._location to store what containers objects are
 	 in, as well as on Exit.destination to determine what object
 	 an exit leads to.
     """
@@ -188,11 +195,13 @@ class PreferredModel(models.CharField):
         the model object instead of the name which gets interpreted by
 	scripthandler.scriptlink to return the model.
     """
+    #print "PreferredModel"
     def __init__(self, *args, **kwargs):
         kwargs['max_length'] = 255
         super(models.CharField, self).__init__(*args, **kwargs)
 
-class Primitive(SharedMemoryModel):
+#class Primitive(SharedMemoryModel):
+class Primitive(DEFAULT_MODEL):    
     """
        The model from which all in-game objects (objects that have a
        meaningful .location field) are descended from. Primitives
@@ -209,9 +218,15 @@ class Primitive(SharedMemoryModel):
        the actual location of an object is stored as _location,
        and location is a property with a setter.
     """
+    #print "Primitive"
     __metaclass__ = PrimitiveModelBase
     preferred_model = PreferredModel()
     _location = PolymorphicPrimitiveForeignKey(blank=True,null=True,db_index=True)
+
+#    objects = ObjectManager()        
+#    class Meta:
+#        abstract = True
+
     def _set_location(self, location):
         """
 	    Used by the location property to set .location, adjust the contents
@@ -242,9 +257,18 @@ class Primitive(SharedMemoryModel):
         if not self.pk and not self.preferred_model:
             self.preferred_model = self.guessModelName()
         super(Primitive, self).save(*args, **kwargs)
-    def guessModelName(self):
-        cruft_len = len(settings.SCRIPT_IMPORT_PATH) + 1
-        full_name = self.__module__ + "." + self.__class__.__name__
+    def guessModelName(self):        
+        full_name = "%s.%s" % (self.__module__, self.__class__.__name__)
+        #print "guessModelName: %s" % full_name
+        cruft = ".".join(full_name.split('.')[0:3])
+        #print cruft
+        if cruft == "src.objects.models":
+            print ">> Warning: scriptlink cannot yet handle direct inheritance"
+            print ">> from BaseObject. You will get an AttributeError."
+            cruft_len = len(cruft) + 1
+        else:
+            cruft_len = len(settings.SCRIPT_IMPORT_PATH) + 1
+            
         return full_name[cruft_len:]
     def at_object_creation(self):
         """
@@ -259,6 +283,7 @@ class Primitive(SharedMemoryModel):
 	   Often extended on objects inheriting from Primitive, especially
 	   by src.models.Object.
 	"""
+        #print "at_object_creation %s" % self
 
 	# TODO shouldn't be needed but come  back to this later!
 	# can be useful during import to avoid initializing objects so that
@@ -269,7 +294,7 @@ class Primitive(SharedMemoryModel):
         # if an object has no preferred_model try to figure out what it should be
         if not self.pk and not self.preferred_model:
             self.preferred_model = self.guessModelName()
-
+            
         # dont do anything its not the preferred model
         if self is not self.preferred_object:
             return
@@ -283,7 +308,9 @@ class Primitive(SharedMemoryModel):
 
         self.already_created = True
         self.contents = []
+        #print "%s's location: %s" % (self, self.location)
         possible_contents = Primitive.objects.filter(_location=self)
+        #print "possible_contents: %s" % possible_contents
         # cause the other objects it contains to come into being
         for prim in possible_contents:
             prim.preferred_object
@@ -305,10 +332,18 @@ class Primitive(SharedMemoryModel):
 	    If an object does not have a preferred_model it is it's own
 	    preferred_object.
 	"""
+        #print "_get_preferred_object (%s)" % self
+        #print "self.preferred_model: %s" % self.preferred_model
         if not self.preferred_model:
             return self
         scriptname = self.preferred_model
+        #print "scriptname going into scriptlink: %s" % scriptname
         mdl = scriptlink(scriptname)
+
+        #print "module returned from scriptlink: %s" % mdl
+        #print "HNTING FOR PRIM %s from %s" % (self.id, "HRM")
+        #print hasattr(mdl, "primitive_ptr"), self.id, self.preferred_model
+
         if hasattr(mdl, "primitive_ptr") and self.id and self.preferred_model:
             try:
                 return mdl.objects.get(primitive_ptr=self.id)
@@ -433,7 +468,7 @@ class BaseObject(Primitive):
     but from DEFAULT_GAME_OBJECT, currently src.game.models.Object
     """
 
-    
+    #print "BaseObject"
     
     class Meta:
         """
@@ -441,8 +476,9 @@ class BaseObject(Primitive):
         how it is ordered in the database.
         """
         ordering = ['-date_created', 'id']
-        permissions = settings.PERM_OBJECTS
+        permissions = settings.PERM_OBJECTS        
 
+        
     name = models.CharField(max_length=255)
     owner = models.ForeignKey('self',
                               related_name="obj_owner",
