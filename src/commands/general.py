@@ -314,10 +314,6 @@ def cmd_get(command):
         source_object.emit_to("You can't get that.")
         return
     
-    if target_obj.is_room() or target_obj.is_garbage() or target_obj.is_going():
-        source_object.emit_to("You can't get that.")
-        return
-
     if not target_obj.default_lock(source_object):
         lock_msg = target_obj.lock_msg
         if lock_msg:

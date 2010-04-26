@@ -981,14 +981,16 @@ class BaseObject(Primitive):
     # ALL THESE THINGS NEED TO GO AWAY in leu of duck-typing!!!
 
     # is_player is actually a useful convenience function though
+    # is_exit makes sense as well
     def is_player(self):
         return session_mgr.sessions_from_object(self) != []
+    def is_exit(self):
+        return hasattr(self, "destination")
+
     def is_room(self):    
         return self.type == defines_global.OTYPE_ROOM
     def is_thing(self):
         return self.type == defines_global.OTYPE_THING
-    def is_exit(self):
-        return self.type == defines_global.OTYPE_EXIT
 #    def is_going(self):
 #        return self.type == defines_global.OTYPE_GOING
 #    def is_garbage(self):
