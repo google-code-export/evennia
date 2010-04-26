@@ -210,6 +210,11 @@ class EvenniaService(service.Service):
            strports.service("2300", site).setServiceParent(self.service_collection)
            teltolaResource.serviceParent = self.service_collection
 
+        # start up the twisted xmlrpc service for IPC use, but only listen locally
+        #from game.gamesrc.remote_signals import rpc_resource, rpc_site
+        #strports.service("tcp:2400:interface=127.0.0.1", rpc_site).setServiceParent(self.service_collection)
+        #rpc_resource.serviceParent = self.service_collection
+
 application = service.Application('Evennia')
 mud_service = EvenniaService()
 mud_service.start_services(application)
