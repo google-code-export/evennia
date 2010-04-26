@@ -155,6 +155,23 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
             cls.cache_instance(cached_instance)
         return cached_instance
 
+    def _prepare(cls):
+        """
+        This method intercepts django's normal manager handling
+        to allow all objects inheriting from the Primitive to access
+        our custom manager through myObj.objects.<func>.
+
+        The django method is found in django.db.base. 
+         """
+        # add an attribute objects as an entryway to manager
+        cls.add_to_class("objects", ObjectManager())
+        # _base_manager is a django internal variable
+        cls._base_manager = cls.objects
+        # let django continue on its way 
+        super(PrimitiveModelBase, cls)._prepare()
+
+
+
 class PolymorphicPrimitiveForeignKey(models.Field):
     """
          Django field type that represents a reference to a Primitive model.
