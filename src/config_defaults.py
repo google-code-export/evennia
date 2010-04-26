@@ -58,7 +58,6 @@ SCRIPT_DEFAULT_PLAYER = 'base.Player'
 # batch processor. Specify relative evennia's 'game' directory. 
 BATCH_IMPORT_PATH = 'gamesrc/world'
 
-
 # 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3', and 'oracle'.
 DATABASE_ENGINE = 'sqlite3'
 # Database name, or path to DB file if using sqlite3.

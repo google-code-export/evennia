@@ -4,7 +4,8 @@ Comsys command module.
 from src import comsys
 from src.channels.models import CommChannelMembership, CommChannel
 from src import defines_global
-from src.objects.models import Object
+#from src.objects.models import Object
+from src.utils import OBJECT as Object 
 from src.cmdtable import GLOBAL_CMD_TABLE
 
 def cmd_addcom(command):

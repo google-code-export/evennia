@@ -4,7 +4,9 @@ Models for the help system.
 from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import User, Group
-from src.objects.models import BaseObject
+#from src.objects.models import Object
+from src.utils import OBJECT as Object 
+from src.utils import PLAYER as Player 
 from src.ansi import parse_ansi
 
 class CommChannel(models.Model):
@@ -13,7 +15,7 @@ class CommChannel(models.Model):
     """
     name = models.CharField(max_length=255)
     ansi_name = models.CharField(max_length=255)
-    owner = models.ForeignKey(BaseObject, related_name="channel_owner_set")
+    owner = models.ForeignKey(Player, related_name="channel_owner_set")
     description = models.CharField(max_length=80, blank=True, null=True)
     is_joined_by_default = models.BooleanField(default=False)
     req_grp = models.ManyToManyField(Group, blank=True, null=True)
@@ -102,7 +104,7 @@ class CommChannelMembership(models.Model):
     Used to track which channels an Object is listening to.
     """
     channel = models.ForeignKey(CommChannel, related_name="membership_set")
-    listener = models.ForeignKey(BaseObject, related_name="channel_membership_set")
+    listener = models.ForeignKey(Player, related_name="channel_membership_set")
     user_alias = models.CharField(max_length=10)
     comtitle = models.CharField(max_length=25, blank=True)
     is_listening = models.BooleanField(default=True)

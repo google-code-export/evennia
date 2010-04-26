@@ -12,9 +12,10 @@ from src.util import functions_general
 from src.helpsys import helpsystem
 from src.cmdtable import GLOBAL_CMD_TABLE
 
-from settings import SCRIPT_DEFAULT_OBJECT
-from src.scripthandler import scriptlink
-OBJECT = scriptlink(SCRIPT_DEFAULT_OBJECT)
+from src.utils import OBJECT as Object 
+## from settings import SCRIPT_DEFAULT_OBJECT
+## from src.scripthandler import scriptlink
+## OBJECT = scriptlink(SCRIPT_DEFAULT_OBJECT)
 
 def cmd_password(command):
     """
@@ -99,7 +100,7 @@ def cmd_emit(command):
         elif target in ['me','my']:
             results = [source_object]
         else:
-            results = OBJECT.objects.global_object_name_search(target)
+            results = Object.objects.global_object_name_search(target)
         if not results:
             source_object.emit_to("No matches found for '%s'." % target)
             return 
@@ -245,13 +246,12 @@ def cmd_inventory(command):
     for item in source_object.contents:
         source_object.emit_to(" %s" % (item.name,))
         
-    money = int(source_object.MONEY)
-    if money == 1:
-        money_name = ConfigValue.objects.get_configvalue("MONEY_NAME_SINGULAR")
-    else:
-        money_name = ConfigValue.objects.get_configvalue("MONEY_NAME_PLURAL")
-
-    source_object.emit_to("You have %d %s." % (money, money_name))
+    ## money = int(source_object.MONEY)
+    ## if money == 1:
+    ##     money_name = ConfigValue.objects.get_configvalue("MONEY_NAME_SINGULAR")
+    ## else:
+    ##     money_name = ConfigValue.objects.get_configvalue("MONEY_NAME_PLURAL")
+    ##source_object.emit_to("You have %d %s." % (money, money_name))
 GLOBAL_CMD_TABLE.add_command("inventory", cmd_inventory)
 
 def cmd_look(command):
@@ -500,7 +500,7 @@ def cmd_fsay(command):
     elif target in ['me','my']:
         results = [source_object]
     else:
-        results = OBJECT.objects.global_object_name_search(target)
+        results = Object.objects.global_object_name_search(target)
     if not results:
         source_object.emit_to("No matches found for '%s'." % target)
         return 
@@ -597,7 +597,7 @@ def cmd_fpose(command):
     elif target in ['me','my']:
         results = [source_object]
     else:
-        results = OBJECT.objects.global_object_name_search(target)
+        results = Object.objects.global_object_name_search(target)
     if not results:
         source_object.emit_to("No matches found for '%s'." % target)
         return 

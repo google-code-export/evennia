@@ -2,7 +2,8 @@
 Implementation of the @search command that resembles MUX2.
 """
 from django.db.models import Q
-from src.objects.models import Object
+#from src.objects.models import Object
+from src.utils import OBJECT as Object 
 from src import defines_global
 from src.cmdtable import GLOBAL_CMD_TABLE
 

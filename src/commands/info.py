@@ -10,7 +10,8 @@ if not functions_general.host_os_is('nt'):
     import resource
 import django
 from django.conf import settings
-from src.objects.models import Object
+from src.utils import OBJECT as Object 
+#from src.objects.models import Object
 from src import scheduler
 from src import defines_global
 from src.cmdtable import GLOBAL_CMD_TABLE
