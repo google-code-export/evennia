@@ -462,7 +462,5 @@ try:
 except ImportError:
     pass
 
-RTCLIENT_ENABLED = False
-
 SCRIPT_DEFAULT_ROOM = 'base.Room'
 SCRIPT_DEFAULT_EXIT = 'base.Exit'
