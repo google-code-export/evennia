@@ -15,7 +15,7 @@ class CustomBasicObject(BasicObject):
     """
     This defines the base class of all non-player objects in game.
     """    
-    def at_object_creation(self):
+    def at_load(self):
         """
         This function is called whenever the object is created. Use
         this instead of __init__ to set start attributes etc on a

@@ -88,10 +88,10 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
 
 	This functionality all comes from idmapper, but we provide
 	a custom __call__ so that the first time a model instance
-	with a given primary key is created, at_object_creation is
+	with a given primary key is created, at_load is
 	called on it.
 
-        Note that at_object_creation is called the first time a
+        Note that at_load is called the first time a
 	given object is put into memory, so if you save an object
 	to the database and restart the server it will be called
 	again the first time that particular object is referenced.
@@ -99,9 +99,9 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
 	This makes it an ideal spot to load other data that should
 	be persistant onto an object.
 
-	DIFFICULTY: at_object_creation is responsible for making
+	DIFFICULTY: at_load is responsible for making
 	sure only the most specific model representing an object
-	does anything during at_object_creation. This functionality
+	does anything during at_load. This functionality
 	may need to move into a manager or into here at a later
 	date to avoid some nasty recursion issues, but shouldn't
 	touch very many areas of the code and should not affect
@@ -115,12 +115,12 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
 	    instead.
 
 	    If no such model instance exists, create it, cache it,
-	    and call at_object_creation on that instance.
+	    and call at_load on that instance.
 
 	    Note that if the server restarts then the cached copy
 	    goes away and the first time a new django model
 	    instance with a given primary key is created, it too
-	    will have at_object_creation called on it.
+	    will have at_load called on it.
 
 	"""
         #print "PrimitiveModelBase __call__(%s,%s,%s)" % (cls, args, kwargs)
@@ -131,11 +131,11 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
 		model instance if no cached copy of a model with
 		a given primary key already exists. In practical
 		terms this means after a reboot, the first time
-		an object is referenced it's at_object_creation
+		an object is referenced it's at_load
 		will be called.
 
                 After the object is created and cached it runs
-		the object's at_object_creation.
+		the object's at_load.
             """
             #print "PrimitiveModelBase new_instance()"
             x = super(DEFAULT_MODEL_BASE, cls).__call__(*args, **kwargs)
@@ -144,7 +144,7 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
             # end up in a recursive loop with primitives initing other prims
             # repeatedly
             cls.cache_instance(x)
-            x.at_object_creation()
+            x.at_load()
             x.already_created = True
             return x
         instance_key = cls._get_cache_key(args, kwargs)
@@ -289,7 +289,7 @@ class Primitive(DEFAULT_MODEL):
             cruft_len = len(settings.SCRIPT_IMPORT_PATH) + 1
             
         return full_name[cruft_len:]
-    def at_object_creation(self):
+    def at_load(self):
         """
            Called the first time a model instance with a given primary key is
 	   referenced. In practice this tends to happen once per object per
@@ -302,7 +302,7 @@ class Primitive(DEFAULT_MODEL):
 	   Often extended on objects inheriting from Primitive, especially
 	   by src.models.Object.
 	"""
-        #print "at_object_creation %s" % self
+        #print "at_load %s" % self
 
 	# TODO shouldn't be needed but come  back to this later!
 	# can be useful during import to avoid initializing objects so that
@@ -1158,13 +1158,13 @@ class BaseObject(Primitive):
         self.location = None
         self.save()
 ### BEGIN IMPORT FROM OBJECT SCRIPT PARENT ###
-    def at_object_creation(self):
+    def at_load(self):
         """
         This is triggered after a new object is created and ready to go. If
         you'd like to set attributes, or do anything when the object
         is created, do it here and not in __init__().
         """
-        x = super(BaseObject, self).at_object_creation()
+        x = super(BaseObject, self).at_load()
     
     def at_object_destruction(self, pobject=None):
         """
