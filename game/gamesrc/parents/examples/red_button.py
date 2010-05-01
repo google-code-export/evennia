@@ -149,7 +149,7 @@ class RedButton(BasicObject):
     breaks. It also use the EventCloselid event defined
     above to close the lid 
     """
-    def at_object_creation(self):
+    def at_load(self):
         """
         This function is called when object is created. Use this
         preferably over __init__.
