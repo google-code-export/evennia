@@ -187,7 +187,6 @@ def reimport(*modules):
             oldModule = oldModules[name]
             newModule = sys.modules[name]
             _push_imported_symbols(newModule, oldModule, parent)
-
     # Rejigger the universe
     for name in newNames:
         old = oldModules.get(name)
