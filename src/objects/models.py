@@ -412,13 +412,13 @@ class AttributeField(object):
 	"""
         self.name = None
         self.default = default
-	self.autosave = False
-
-    def save_to_database(self, **kwargs):
+	self.autosave = autosave
+    def save_to_database_listener(self, **kwargs):
+        self.save_to_database(kwargs['instance'])
+    def save_to_database(self, instance):
         """
             Save the cached value to the database.
 	"""
-        instance = kwargs['instance']
         if hasattr(instance, "primitive_ptr"):
             primitive = instance.primitive_ptr
         else:
@@ -439,7 +439,7 @@ class AttributeField(object):
 	"""
         self.name = name
         setattr(cls, name, self)
-        signals.post_save.connect(self.save_to_database, sender=cls, weak=False, dispatch_uid="save_to_database")
+        signals.post_save.connect(self.save_to_database_listener, sender=cls, weak=False, dispatch_uid="save_to_database_listener")
     def __get__(self, instance, owner=None):
         """
 	    Called when a value is retrieved from the AttributeField instance.
@@ -470,7 +470,7 @@ class AttributeField(object):
         else:
             setattr(instance, '_%s_cache' % self.name, value)
             if self.autosave:
-                self.save_to_database()
+                self.save_to_database(instance)
 
 
 
