@@ -200,20 +200,12 @@ class EvenniaService(service.Service):
             irc.setName("%s:%s" % ("IRC",settings.IRC_CHANNEL))
             irc.setServiceParent(self.service_collection)
 
-        if settings.RTCLIENT_ENABLED:
-           from twisted.application import strports
-           from nevow import appserver
-           from game.gamesrc.teltola import teltola
-
-           teltolaResource = teltola.createResource()
-           site = appserver.NevowSite(teltolaResource)
-           strports.service("2300", site).setServiceParent(self.service_collection)
-           teltolaResource.serviceParent = self.service_collection
-
-        # start up the twisted xmlrpc service for IPC use, but only listen locally
-        #from game.gamesrc.remote_signals import rpc_resource, rpc_site
-        #strports.service("tcp:2400:interface=127.0.0.1", rpc_site).setServiceParent(self.service_collection)
-        #rpc_resource.serviceParent = self.service_collection
+        try:
+            import gamesrc.server
+            logger.log_infomsg("Starting game-specific servers")
+            gamesrc.server.start_services(self.service_collection)
+        except ImportError:
+            pass
 
 application = service.Application('Evennia')
 mud_service = EvenniaService()
