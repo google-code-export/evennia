@@ -865,10 +865,10 @@ GLOBAL_CMD_TABLE.add_command("@delevent", cmd_delevent,
 def cmd_reload(command):
     source_object = command.source_object
     cache = AppCache()
-    for app in cache.get_apps():
-        source_object.emit_to("Reloading app: %s" % app.__name__)
-	__import__(app.__name__)
-	reload(app)
+    #for app in cache.get_apps():
+        #source_object.emit_to("Reloading app: %s" % app.__name__)
+	#__import__(app.__name__)
+	#reload(app)
     cache.app_store = SortedDict()
     cache.app_models = SortedDict()
     cache.app_errors = {}
@@ -876,10 +876,10 @@ def cmd_reload(command):
     cache.loaded = False
     #clean_modules_cache()
     source_object.emit_to("Cleaned django module cache.")
-    modified = src.objects.reimport.modified()
+    modified = reimport.modified()
     if modified:
 	source_object.emit_to("Reloading modified modules: %s" % modified)
-	src.objects.reimport.reimport(*src.objects.reimport.modified())
+	reimport.reimport(*reimport.modified())
     else:
 	source_object.emit_to("Nothing new to import.")
     source_object.emit_to("Reloaded modules.")

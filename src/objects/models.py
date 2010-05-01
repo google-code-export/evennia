@@ -1,10 +1,12 @@
 """
 This is where all of the crucial, core object models reside. 
 """
+# dont allow reimporting of this module, otherwise we gotta deal with metabases changing, which throws a spanner in the works because things are no longer subtypes of their metabases
+__reimported__ = False
+
 import re
 import traceback
 import time
-
 from django.db import models
 from django.db.models.options import Options
 from django.conf import settings
@@ -462,12 +464,13 @@ class AttributeField(object):
     def __set__(self, instance, value):
         """
             set the value of the attribute field
-	    TODO: call save_to_database if autosave = True
 	"""
         if instance is None:
             raise AttributeError(_('%s can only be set on instances.') % self.name)
         else:
             setattr(instance, '_%s_cache' % self.name, value)
+            if self.autosave:
+                self.save_to_database()
 
 
 
