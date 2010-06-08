@@ -54,7 +54,7 @@ def cmd_connect(command):
         else:
             puppet = PLAYER_MDL.objects.create(user=user,name=user.username)
             player_start_loc_id = ConfigValue.objects.get_configvalue('player_dbnum_start')
-            player_start = Primitive.objects.get(id=player_start_loc_id).preferred_object
+            player_start = Primitive.objects.get(id=player_start_loc_id)
             puppet.location = player_start
             puppet.set_home(player_start)
             puppet.save()
