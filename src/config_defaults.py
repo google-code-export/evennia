@@ -47,7 +47,7 @@ SRC_DIR = os.path.join(BASE_PATH, 'src')
 MEDIA_ROOT = os.path.join(GAME_DIR, 'web', 'media')
 
 # Import style path to the directory holding script parents. Must be in the import path.
-SCRIPT_IMPORT_PATH = '%s.gamesrc.parents' % GAME
+SCRIPT_IMPORT_PATH = 'gamesrc.parents'
 # Default parent associated with non-player objects. This starts from where
 # the SCRIPT_IMPORT_PATH left off.
 SCRIPT_DEFAULT_OBJECT = 'base.Object'

@@ -312,7 +312,7 @@ def match_exits(command,test=False):
                     source_object.emit_to("You can't traverse that exit.")
             else:
                 source_object.move_to(exit.destination)
-                return True
+                raise ExitCommandHandler
         # We found a match, kill the command handler.
         #raise ExitCommandHandler
     return True
@@ -388,7 +388,7 @@ def match_neighbor_ctables(command,test=False):
     location = source_object.location
     if location:
         # get all objects, including the current room
-        neighbors = location.contents  + [location] + source_object.contents
+        neighbors = location.contents  | set((location,)) | source_object.contents
         for neighbor in neighbors:
             #print "neighbor:", neighbor 
             if hasattr(neighbor, "cmdtable"):

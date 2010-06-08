@@ -15,9 +15,15 @@ from src.objects.exceptions import ObjectNotExist
 from src.objects.util import object as util_object
 from src import defines_global
 from src import logger
-    
-class ObjectManager(models.Manager):
 
+from django.db.models.query import QuerySet
+
+class ObjectQuerySet(QuerySet):
+    pass    
+class ObjectManager(models.Manager):
+    def get_query_set(self):
+        return ObjectQuerySet(self.model)
+ 
     #
     # ObjectManager Get methods 
     #
@@ -397,3 +403,4 @@ class ObjectManager(models.Manager):
         return self.list_search_object_namestr(local_objs, search_query,
                                                limit_types=limit_types,
                                                attribute_name=attribute_name)        
+

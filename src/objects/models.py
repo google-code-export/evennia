@@ -7,6 +7,7 @@ __reimported__ = False
 import re
 import traceback
 import time
+from collections import MutableSet
 from django.db import models
 from django.db.models.options import Options
 from django.conf import settings
@@ -33,8 +34,11 @@ from django.db.models import signals
 
 from src.objects.PickledObjectField import PickledObjectField
 from django.db.models.base import ModelBase
+from weakref import WeakValueDictionary
+from django.db.models import OneToOneField , IntegerField
 
-class ForcedAppBase(SharedMemoryModelBase):
+class ForcedAppModelBase(SharedMemoryModelBase):
+    forced_app_label = "game"
     def __new__(cls, name, bases, attrs):
         """
            Force all models descended from this object to belong to the correct
@@ -43,12 +47,12 @@ class ForcedAppBase(SharedMemoryModelBase):
            game versions or completely different games (with folders game, game2,
            game3 etc) using the same game engine at the same time should we so desire.
         """
-        #print "ForcedAppBase __new__(%s, %s, %s, %s)" % (cls, name, bases, attrs)
-        super_new = super(ModelBase, cls).__new__
-        parents = [b for b in bases if isinstance(b, ForcedAppBase)]
+        #print "ForcedAppModelBase __new__(%s, %s, %s, %s)" % (cls, name, bases, attrs)
         # TODO, for multi-base classes we will need to do some work here
         #if not parents:
         #    return super_new(cls, name, bases, attrs)
+        super_new = super(ModelBase, cls).__new__
+        parents = [b for b in bases if isinstance(b, ForcedAppModelBase)]
         attr_meta = attrs.pop("Meta", None)
         if not attr_meta:
             module = attrs['__module__']
@@ -56,23 +60,23 @@ class ForcedAppBase(SharedMemoryModelBase):
             meta = getattr(new_class, 'Meta', Options({}))
             class NewMeta:
                 def __init__(self):
-                   self.app_label = "game"
+                   self.app_label = cls.forced_app_label
             meta = getattr(new_class, 'Meta', NewMeta())
             attrs["Meta"] = meta
         else:
             meta = attr_meta
             if not hasattr(meta, "app_label"):
-                meta.app_label = "game"
+                meta.app_label = cls.forced_app_label
             attrs["Meta"] = meta
-        return super(ForcedAppBase, cls).__new__(cls, name, bases, attrs)
+        return super(ForcedAppModelBase, cls).__new__(cls, name, bases, attrs)
 
 class ForcedAppModel(SharedMemoryModel):
-    __metaclass__ = ForcedAppBase
+    __metaclass__ = ForcedAppModelBase
     class Meta:
         abstract = True
 
 DEFAULT_MODEL = ForcedAppModel
-DEFAULT_MODEL_BASE = ForcedAppBase
+DEFAULT_MODEL_BASE = ForcedAppModelBase
 
 class PrimitiveModelBase(DEFAULT_MODEL_BASE):
     """
@@ -107,6 +111,13 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
 	touch very many areas of the code and should not affect
 	game-level code.
     """
+    __combined_instance_cache__ = WeakValueDictionary()
+    def __new__(cls, name, bases, attrs):
+        if name is not "Primitive":
+            x =  super(PrimitiveModelBase, cls).__new__(cls, name, bases, attrs)
+            return x
+        else:
+            return super(PrimitiveModelBase, cls).__new__(cls, name, bases, attrs)
     def __call__(cls, *args, **kwargs):
         """
             Whenver a django model instance is created, if an
@@ -124,8 +135,8 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
 
 	"""
         #print "PrimitiveModelBase __call__(%s,%s,%s)" % (cls, args, kwargs)
-        # new_instance is custom, everything else is cut and paste
-        def new_instance():
+        # create_in_memory_instance is custom, everything else is cut and paste
+        def create_in_memory_instance():
 	    """
 	        Used by __call__ to cache and create a new django
 		model instance if no cached copy of a model with
@@ -137,27 +148,45 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
                 After the object is created and cached it runs
 		the object's at_load.
             """
-            #print "PrimitiveModelBase new_instance()"
-            x = super(DEFAULT_MODEL_BASE, cls).__call__(*args, **kwargs)
+            #print "PrimitiveModelBase create_in_memory_instance()"
+            # no parents have  __call__  in their stack amazingly
+            if instance_key is None:
+                created_in_memory_instance = super(PrimitiveModelBase, cls).__call__(*args, **kwargs)
+                created_in_memory_instance.at_create()
+            else:
+                raw_prim = RawPrimitive.objects.get(id=instance_key)
+                preferred_model = scriptlink(raw_prim.preferred_model)
+                if cls is preferred_model:
+                    created_in_memory_instance = super(PrimitiveModelBase, preferred_model).__call__(*args, **kwargs)
+                else:
+                    created_in_memory_instance = preferred_model.objects.get(id=instance_key)
+                #created_in_memory_instance = preferred_model.__new__(preferred_model, *args, **kwargs)
+                #created_in_memory_instance.__init__(*args, **kwargs)
             #print "Instance created: %s" % x.__class__
             # go ahead and cache it even before we init it so we don't
             # end up in a recursive loop with primitives initing other prims
             # repeatedly
-            cls.cache_instance(x)
-            x.at_load()
-            x.already_created = True
-            return x
+            cls.cache_instance(created_in_memory_instance)
+            created_in_memory_instance.at_load()
+            created_in_memory_instance.already_created = True
+            return created_in_memory_instance
         instance_key = cls._get_cache_key(args, kwargs)
         if instance_key is None:
-            return new_instance()
+            return create_in_memory_instance()
         cached_instance = cls.get_cached_instance(instance_key)
         if cached_instance is None:
-            assert(not hasattr(cached_instance, "already_created"))
-            cached_instance = new_instance()
+            cached_instance = create_in_memory_instance()
             cls.cache_instance(cached_instance)
         return cached_instance
-
-    def _prepare(cls):
+    def _base_prepare(cls):
+        # add an attribute objects as an entryway to manager
+        cls.add_to_class("objects", ObjectManager())
+        # _base_manager is a django internal variable
+        cls._base_manager = cls.objects
+    def _offline_prepare(cls):
+        cls._base_prepare()
+        super(SharedMemoryModelBase, cls)._prepare()
+    def _online_prepare(cls):
         """
         This method intercepts django's normal manager handling
         to allow all objects inheriting from the Primitive to access
@@ -165,14 +194,27 @@ class PrimitiveModelBase(DEFAULT_MODEL_BASE):
 
         The django method is found in django.db.base. 
          """
-        # add an attribute objects as an entryway to manager
-        cls.add_to_class("objects", ObjectManager())
-        # _base_manager is a django internal variable
-        cls._base_manager = cls.objects
-        # let django continue on its way 
-        super(PrimitiveModelBase, cls)._prepare()
-
-
+        cls._base_prepare()
+        # unset pk to keep from hitting infinite loop in related.py's pk-trace
+        base = cls
+        for parent in cls.__mro__:
+            if not issubclass(parent.__metaclass__, cls.__metaclass__):
+                break
+            base = parent
+        if cls is not base:
+            cls._meta.pk = IntegerField(name="%s_ptr" % cls.__mro__[1]._meta.module_name, primary_key=True)#Primitive._meta.pk
+            cls._meta.pk.get_db_prep_lookup = Primitive._meta.pk.get_db_prep_lookup
+            print "LCOALX FIELDS", map(lambda x: x.name, cls._meta.local_fields)
+            cls._meta.pk
+            cls._meta.pk.column = "%s_ptr_id" % cls.__mro__[1]._meta.module_name
+            print "CACHE NAME", "_%s_ptr_cache" % cls.__mro__[1]._meta.module_name
+            cls._meta.pk.attname = "%s_ptr_id" % cls.__mro__[1]._meta.module_name
+            if cls._meta.local_fields:
+                print "CLOBBERING FIELD", cls._meta.local_fields[0].name
+                cls._meta.local_fields[0] = cls._meta.pk
+        super(SharedMemoryModelBase, cls)._prepare()
+        cls.__instance_cache__ = PrimitiveModelBase.__combined_instance_cache__
+    _prepare = _online_prepare
 
 class PolymorphicPrimitiveForeignKey(models.Field):
     """
@@ -198,15 +240,16 @@ class PolymorphicPrimitiveForeignKey(models.Field):
     def to_python(self, value):
         if value is not None:
             if type(value) is int:
-                return Primitive.objects.only("preferred_model").get(id=value).preferred_object
+                return Primitive.objects.get(id=value)
             else:
                 return value
     def get_db_prep_value(self, value):
         if value:
-            if hasattr(value, "primitive_ptr"):
-                return value.primitive_ptr.id
-            else:
-                return value.id
+            return value.id
+            #if hasattr(value, "primitive_ptr"):
+            #    return value.primitive_ptr.id
+            #else:
+            #    return value.id
 
 class PreferredModel(models.CharField):
     """ 
@@ -214,12 +257,59 @@ class PreferredModel(models.CharField):
         the model object instead of the name which gets interpreted by
 	scripthandler.scriptlink to return the model.
     """
-    #print "PreferredModel"
     def __init__(self, *args, **kwargs):
         kwargs['max_length'] = 255
         super(models.CharField, self).__init__(*args, **kwargs)
 
-#class Primitive(SharedMemoryModel):
+class LazyPrimitiveSet(MutableSet):
+    """
+        In order to keep from loading the whole world at once due
+        to dependency resolution by objects loading their contents
+        which load objects which load exits which oad objects which
+        load contents ad infinitum we store the ids of the object
+        and then load the objects from the database only when
+        the contents of the list are first looked at.
+
+        This flattens out the dependency chain and solves the
+        problem of recursion hitting the stack limit.
+
+        Very very open to better implementations. This definately
+        warrants revisiting but currently works OK.
+
+    """
+    def __init__(self, contents=(), debug_hint=False):
+        self.deferred_contents = set(contents)
+        self.already_loaded = False
+        self.debug_hint = debug_hint
+        self.contents = set()
+    def discard(self, item):
+        return self.contents.discard(item)
+    def add(self, item):
+        self.subout()
+        return self.contents.add(item)
+    def discard(self, item):
+        self.subout()
+        return self.contents.discard(item)
+    def __iter__(self):
+        self.subout()
+        return self.contents.__iter__()
+    def __len__(self):
+        self.subout()
+        return self.contents.__len__()
+    def __contains__(self, item):
+      # not sure why self.__iter__() works but
+      # self.contents.__contains__(item) gives bonus answes
+      self.subout()
+      return item in self.__iter__()
+    def subout(self):
+        if not self.already_loaded:
+            self.already_loaded = True 
+            for x in self.deferred_contents:
+                if hasattr(x, "deferred_object"):
+                    self.contents.add(x.deferred_object)
+                else:
+                    self.contents.add(x)
+
 class Primitive(DEFAULT_MODEL):    
     """
        The model from which all in-game objects (objects that have a
@@ -237,15 +327,11 @@ class Primitive(DEFAULT_MODEL):
        the actual location of an object is stored as _location,
        and location is a property with a setter.
     """
-    #print "Primitive"
     __metaclass__ = PrimitiveModelBase
     preferred_model = PreferredModel()
     _location = PolymorphicPrimitiveForeignKey(blank=True,null=True,db_index=True)
 
 #    objects = ObjectManager()        
-#    class Meta:
-#        abstract = True
-
     def _set_location(self, location):
         """
 	    Used by the location property to set .location, adjust the contents
@@ -255,23 +341,19 @@ class Primitive(DEFAULT_MODEL):
 	    Ultimately, could throw an exception in leu of using the existing
 	    lock system when movement is prohibited.
 	"""
-        pself = self.preferred_object
-        if pself.location:
-            pself.location.at_leave(self) # 
-            pself.location.contents.remove(self)
-        pself._location = location
+        if self.location:
+            self.location.at_leave(self) # 
+            self.location.contents.discard(self)
+        self._location = location
         if location:
-           pself.location.contents.append(self)
-           pself.location.at_obj_receive(self)
+           self.location.contents.add(self)
+           self.location.at_obj_receive(self)
     location = property(fget=lambda self:self._location,fset=_set_location)
     def save(self, *args, **kwargs):
         """
 	    All primitives need to have a preferred_model. If they do not
 	    have one by time they are first saved, go ahead and try to
 	    figure out what it should be.
-
-	    All primitive instances are ther own preferred_object when
-	    preferred_modl is False.
 	"""
         if not self.pk and not self.preferred_model:
             self.preferred_model = self.guessModelName()
@@ -279,16 +361,18 @@ class Primitive(DEFAULT_MODEL):
     def guessModelName(self):        
         full_name = "%s.%s" % (self.__module__, self.__class__.__name__)
         #print "guessModelName: %s" % full_name
-        cruft = ".".join(full_name.split('.')[0:3])
+        #cruft = ".".join(full_name.split('.')[0:3])
         #print cruft
-        if cruft == "src.objects.models":
-            print ">> Warning: scriptlink cannot yet handle direct inheritance"
-            print ">> from BaseObject. You will get an AttributeError."
-            cruft_len = len(cruft) + 1
-        else:
-            cruft_len = len(settings.SCRIPT_IMPORT_PATH) + 1
-            
-        return full_name[cruft_len:]
+        #if cruft == "src.objects.models":
+        #    print ">> Warning: scriptlink cannot yet handle direct inheritance"
+        #    print ">> from BaseObject. You will get an AttributeError."
+        #    cruft_len = len(cruft) + 1
+        #else:
+        #    cruft_len = len(settings.SCRIPT_IMPORT_PATH) + 1
+        #return full_name[cruft_len:]
+        assert(full_name.startswith(settings.SCRIPT_IMPORT_PATH))
+        return full_name[len(settings.SCRIPT_IMPORT_PATH)+1:]
+
     def at_load(self):
         """
            Called the first time a model instance with a given primary key is
@@ -309,14 +393,9 @@ class Primitive(DEFAULT_MODEL):
 	# you can force a different preferred_model from the one being imported
         if hasattr(self, "already_created"):
             return
-
         # if an object has no preferred_model try to figure out what it should be
         if not self.pk and not self.preferred_model:
             self.preferred_model = self.guessModelName()
-            
-        # dont do anything its not the preferred model
-        if self is not self.preferred_object:
-            return
 	####### 
         # TODO:
         # other models probably should NOT extend this
@@ -326,51 +405,25 @@ class Primitive(DEFAULT_MODEL):
         #######
 
         self.already_created = True
-        self.contents = []
-        #print "%s's location: %s" % (self, self.location)
-        possible_contents = Primitive.objects.filter(_location=self)
-        #print "possible_contents: %s" % possible_contents
-        # cause the other objects it contains to come into being
-        for prim in possible_contents:
-            prim.preferred_object
-        if self.location:
+        print "%s's location: %s" % (self, self.location)
+        possible_contents = RawPrimitive.objects.filter(_location=self.id)
+        self.contents = LazyPrimitiveSet(set(possible_contents), debug_hint=self)
+        if self.location and hasattr(self.location, "contents"):
             # FIXME: check shouldn't be needed but avoids multiple 
             # instances of objects showing up in room
             if self not in self.location.contents:
-                self.location.contents.append(self.preferred_object)
+                self.location.contents.add(self)
+    def as_sql(self):
+        return "%s" ,{'id':"THINGTWO%s" % self.id}
 
-    def _get_preferred_object(self):
-        """
-            A given primitive can be represented lots of ways. A Lion will 
-	    show up on a list of Cats, Animals, Primitives, etc.
-
-	    Preferred object gets the preferred type of an object by running
-	    preferred_model through the scripthandler which, then returns
-	    an instance of that mdl with the same key.
-
-	    If an object does not have a preferred_model it is it's own
-	    preferred_object.
-	"""
-        #print "_get_preferred_object (%s)" % self
-        #print "self.preferred_model: %s" % self.preferred_model
-        if not self.preferred_model:
-            return self
-        scriptname = self.preferred_model
-        #print "scriptname going into scriptlink: %s" % scriptname
-        mdl = scriptlink(scriptname)
-
-        #print "module returned from scriptlink: %s" % mdl
-        #print "HNTING FOR PRIM %s from %s" % (self.id, "HRM")
-        #print hasattr(mdl, "primitive_ptr"), self.id, self.preferred_model
-
-        if hasattr(mdl, "primitive_ptr") and self.id and self.preferred_model:
-            try:
-                return mdl.objects.get(primitive_ptr=self.id)
-            except:
-                return self
-        else:
-            return self
-    preferred_object = property(fget=_get_preferred_object)
+class RawPrimitive(DEFAULT_MODEL):
+    class Meta:
+        db_table = "game_primitive"
+    _location = models.IntegerField(blank=True, null=True)
+    preferred_model = PreferredModel()
+    def _get_deferred_object(self):
+        return Primitive.objects.get(id=self.id)
+    deferred_object = property(fget=_get_deferred_object)
 
 class Attribute(DEFAULT_MODEL):
     """
@@ -382,8 +435,6 @@ class Attribute(DEFAULT_MODEL):
 	adding AttributeField to Django models descended from primitive.
 	
     """
-    #import pdb
-    #pdb.set_trace()
     primitive = models.ForeignKey(Primitive, related_name="_attributes")
     name = models.CharField(max_length=255)
     value = PickledObjectField()
@@ -495,7 +546,7 @@ class BaseObject(Primitive):
         Define permission types on the object class and
         how it is ordered in the database.
         """
-        ordering = ['-date_created', 'id']
+        #ordering = ['-date_created', 'id']
         permissions = settings.PERM_OBJECTS        
 
         
@@ -1160,9 +1211,21 @@ class BaseObject(Primitive):
 ### BEGIN IMPORT FROM OBJECT SCRIPT PARENT ###
     def at_load(self):
         """
-        This is triggered after a new object is created and ready to go. If
+        This is triggered after a new object is loaded and ready to go. If
         you'd like to set attributes, or do anything when the object
-        is created, do it here and not in __init__().
+        is loaded into memory, do it here and not in __init__().
+        """
+        x = super(BaseObject, self).at_load()
+
+    def at_create(self):
+        """
+        This is triggered after a new object is created and ready to go. If
+        you'd like to do something when the object is created in the
+         database, do it here not in __init__().
+
+        If you want this to happen whenever you object is loaded into memory
+        instead of just when the object is created in the database, 
+        use at_load instead.
         """
         x = super(BaseObject, self).at_load()
     

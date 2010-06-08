@@ -53,7 +53,6 @@ def scriptlink(scriptname):
     #full_script = scriptname
     script_name = str(full_script.split('.')[-1])
     script_module = ".".join(full_script.split('.')[0:-1])
-    print "%s/%s/%s/%s" % (scriptname, full_script, script_module, script_name)
     try:
         # Change the working directory to the location of the script and import.
         logger.log_infomsg("SCRIPT: Caching and importing %s." % (scriptname))
