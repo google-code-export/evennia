@@ -15,6 +15,8 @@ user.
 """
 import re
 
+from src.teltola.tokens import *
+
 class ANSITable(object):
     """
     A table defining the 
@@ -122,7 +124,17 @@ class ANSIParser(object):
             (r'{n', normal)                            #reset
             ] 
 
-        self.ansi_map = mux_ansi_map + ext_ansi_map
+        # Expanded mappings for teltola control characters
+        rtclient_ansi_map = [
+	    (r'%xh', HTML_TOKEN),
+	    (r'%xj', JAVASCRIPT_TOKEN),
+	    (r'%xu', UNENCODED_TOKEN),
+	    (r'%xm', NO_AUTOCHUNK_TOKEN),
+	    (r'%xa', AUTOCHUNK_TOKEN),
+	    (r'%xt', TELNET_ONLY_TOKEN),
+            ]
+
+        self.ansi_map = mux_ansi_map + ext_ansi_map + rtclient_ansi_map
 
         # prepare regex matching
         self.ansi_sub = [(re.compile(sub[0], re.DOTALL), sub[1])

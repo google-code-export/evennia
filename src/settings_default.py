@@ -303,6 +303,19 @@ IRC_NICKNAME = ""
 
 
 ###################################################
+# Teltola config
+###################################################
+
+# This enables a telnet-like but web-enhanced client running on an
+# integrated web server.
+
+# Activate the telnet-like web interface bot. 
+TELTOLA_ENABLED = False
+# Which port should we run on (e.g. 2300)
+TELTOLA_PORT = 2300
+
+
+###################################################
 # Config for Django web features
 ###################################################
 
@@ -368,7 +381,9 @@ ACTIVE_TEMPLATE = 'prosimii'
 # We setup the location of the website template as well as the admin site.
 TEMPLATE_DIRS = (
     os.path.join(GAME_DIR, "web", "templates", ACTIVE_TEMPLATE),
-    os.path.join(GAME_DIR, "web", "templates"),)
+    os.path.join(GAME_DIR, "web", "templates"),
+    os.path.join(GAME_DIR, "snippets"),
+    os.path.join(SRC_DIR, "snippets"),)
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (
     'django.template.loaders.filesystem.load_template_source',

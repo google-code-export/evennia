@@ -15,16 +15,172 @@ from src.utils import ansi
 from src.utils import reloads 
 from src.utils import logger
 from src.utils import utils
-from src.teltola.formatting import expurgate, strip_for_telnet_client as strip_for_client
 
-class SessionProtocol(StatefulTelnetProtocol):
+from src.teltola.tokens import HTML_TOKEN, JAVASCRIPT_TOKEN, UNENCODED_TOKEN, NO_AUTOCHUNK_TOKEN, AUTOCHUNK_TOKEN, TELNET_ONLY_TOKEN, ENCODING_TOKENS
+from src.teltola.formatting import strip_for_teltola_client as strip_for_client, manual
+
+from django.template.loader import get_template
+from django.template import Context
+
+from cgi import escape
+from nevow.livepage import js, eol
+
+class AnsiState:
+    def __init__(self):
+        self.buffer = ""
+        self.open_span = False
+        self.reset()
+    def reset(self):
+        self.background = None
+        self.foreground = None
+        self.bold = False
+        self.italic = False
+        self.underline = False
+        self.inverse = False
+        self.strikethrough = False
+    def process_buffer(self):
+        retval = ""
+        if self.buffer == "[0":
+            self.reset()
+        elif self.buffer == "[1":
+            self.bold = True
+        elif self.buffer == "[3":
+            self.italic = True
+        elif self.buffer == "[4":
+            self.underline = True
+        elif self.buffer == "[7":
+            self.inverse = True
+        elif self.buffer == "[9":
+            self.strikethrough = True
+        elif self.buffer == "[22":
+            self.bold = False
+        elif self.buffer == "[23":
+            self.italic = False
+        elif self.buffer == "[24":
+            self.underilne = False
+        elif self.buffer == "[27":
+            self.inverse = False
+        elif self.buffer == "[29":
+            self.strikethrough = False
+        elif self.buffer == "[30":
+            self.foreground = "black"
+        elif self.buffer == "[31":
+            self.foreground = "red"
+        elif self.buffer == "[32":
+            self.foreground = "green"
+        elif self.buffer == "[33":
+            self.foreground = "yellow"
+        elif self.buffer == "[34":
+            self.foreground = "blue"
+        elif self.buffer == "[35":
+            self.foreground = "magenta"
+        elif self.buffer == "[36":
+            self.foreground = "cyan"
+        elif self.buffer == "[37":
+            self.foreground = "white"
+        # 38
+        elif self.buffer == "[39":
+            self.foreground = False 
+        elif self.buffer == "[40":
+            self.background = "black"
+        elif self.buffer == "[41":
+            self.background = "red"
+        elif self.buffer == "[42":
+            self.background = "green"
+        elif self.buffer == "[43":
+            self.background = "yellow"
+        elif self.buffer == "[44":
+            self.background = "blue"
+        elif self.buffer == "[45":
+            self.background = "magenta"
+        elif self.buffer == "[46":
+            self.background = "cyan"
+        elif self.buffer == "[47":
+            self.background = "white"
+        # 48
+        elif self.buffer == "[49":
+            self.background = False 
+        else:
+            retval += "<h1>%s</h1>" % self.buffer
+        self.buffer = ""
+        if self.open_span:
+            retval += "</span>"
+        self.open_span = False
+        attrs = []
+        if self.bold:
+           attrs.append('font-weight:bold')
+        if self.background:
+           attrs.append('background-color:%s' % self.background)
+        if self.foreground:
+           attrs.append('color:%s' % self.foreground)
+        if len(attrs):
+            retval += "<span style='%s'>" % (u";".join(attrs))
+        return retval
+        
+       
+
+class RTFakeSessionProtocol:
+    def __init__(self, client, host):
+        self.client = client
+        self.host = host
+    def write(self, txt):
+        self.client.send(txt)
+    mode = 'WaitForUser'
+    def dataReceived(self, chunk):
+        if not hasattr(self, "currentEncoding"):
+            self.currentEncoding = UNENCODED_TOKEN
+            self.autochunk = True
+            self.htmlBuffer = u""
+            self.javascriptBuffer = u""
+            self.trappingANSI = False
+            self.ansi_state = AnsiState()
+        while chunk != "":
+            c = chunk[0]
+            chunk = chunk[1:]
+            if c in ENCODING_TOKENS:
+                if c == AUTOCHUNK_TOKEN:
+                    self.autochunk = True
+                elif c == NO_AUTOCHUNK_TOKEN:
+                    self.autochunk = False
+                elif c != self.currentEncoding:
+                    self.currentEncoding = c
+            else:
+                if self.currentEncoding == UNENCODED_TOKEN:
+                    if c == chr(27):
+                        self.trappingANSI = True
+                    elif self.trappingANSI == True:
+                        if c == "m":
+                            self.trappingANSI = False
+                            self.htmlBuffer += self.ansi_state.process_buffer()
+                        else:
+                            self.ansi_state.buffer += c
+                    elif self.trappingANSI == False:
+                        if c in [chr(10), chr(13), chr(255)]  and self.autochunk:
+                            self.doSend()
+                        self.htmlBuffer += escape(c, quote=True)
+                elif self.currentEncoding == HTML_TOKEN:
+                    self.htmlBuffer += c 
+                elif self.currentEncoding == JAVASCRIPT_TOKEN:
+                        self.javascriptBuffer += c
+    def doSend(self):
+        if self.ansi_state.open_span:
+            self.ansi_state.reset()
+            self.open_span = False
+            self.htmlBuffer += "</span>"
+        if self.htmlBuffer != "":
+            self.client.send([js.addText(self.htmlBuffer), eol, js.scrollDown()])
+            self.htmlBuffer = ""
+        if self.javascriptBuffer != "":
+            self.client.send([js.remoteEval(self.javascriptBuffer), eol, js.scrollDown()])
+    def sendLine(self, txt):
+        self.dataReceived(txt + u"\n")
     """
     This class represents a player's session. Each player
     gets a session assigned to them whenever
     they connect to the game server. All communication
     between game and player goes through here. 
     """
-
+    
     def __str__(self):
         """
         String representation of the user session class. We use
@@ -48,13 +204,16 @@ class SessionProtocol(StatefulTelnetProtocol):
         sessionhandler.add_session(self)
         # show a connect screen 
         self.game_connect_screen()
+        welcome_html = get_template('login.snip').render(Context())
+        clear_screen_js = u""
+        self.msg(HTML_TOKEN + welcome_html + UNENCODED_TOKEN)
 
     def getClientAddress(self):
         """
         Returns the client's address and port in a tuple. For example
         ('127.0.0.1', 41917)
         """
-        return self.transport.client
+        return self.host
 
     def prep_session(self):
         """
@@ -65,7 +224,8 @@ class SessionProtocol(StatefulTelnetProtocol):
         the connected player. 
         """
         # main server properties 
-        self.server = self.factory.server
+        # do we need this self.server?
+        #self.server = self.factory.server
         self.address = self.getClientAddress()
 
         # player setup 
@@ -126,7 +286,7 @@ class SessionProtocol(StatefulTelnetProtocol):
         except Exception, e:
             self.sendLine(str(e))
             return 
-        self.sendLine(strip_for_client(ansi.parse_ansi(message, strip_ansi=not markup)).encode('ascii'))
+        self.sendLine(strip_for_client(ansi.parse_ansi(message, strip_ansi=not markup)))
 
     def get_character(self):
         """
@@ -255,3 +415,5 @@ class SessionProtocol(StatefulTelnetProtocol):
             cchan.msg("[%s]: %s" % (cchan.key, message))
         except Exception:
             logger.log_infomsg(message)
+
+            

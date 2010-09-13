@@ -147,6 +147,16 @@ class EvenniaService(service.Service):
             irc.setName("%s:%s" % ("IRC", settings.IRC_CHANNEL))
             irc.setServiceParent(self.service_collection)
 
+        if settings.TELTOLA_ENABLED:
+            from twisted.application import strports
+            from nevow import appserver
+            from src.teltola import teltola
+
+            teltolaResource = teltola.Teltola()
+            site = appserver.NevowSite(teltolaResource)
+            strports.service(str(settings.TELTOLA_PORT), site).setServiceParent(self.service_collection)
+            teltolaResource.serviceParent = self.service_collection
+
 
 # Twisted requires us to define an 'application' attribute.
 application = service.Application('Evennia') 
