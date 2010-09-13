@@ -43,9 +43,13 @@ def format_help_list(hdict_cmds, hdict_db):
     if hdict_cmds and hdict_cmds.values():
         #string += "\n\r" + "-"*70 + "\n\r  {gCommand help entries{n\n" + "-"*70
         string += h2("Command help entries")
+        category_strings = []
         for category in sorted(hdict_cmds.keys()):
-            string += tag("h3", str(category).capitalize(),alt=("\n  {w", "{n:\n"))
-            string += fill(", ".join(map(lambda cmd: a(cmd, "help %s" % cmd),sorted(hdict_cmds[category]))))
+            category_string = ""
+            category_string += tag("h3", str(category).capitalize(),alt=("  {w", "{n:\n"))
+            category_string += fill(", ".join(map(lambda cmd: a(cmd, "help %s" % cmd),sorted(hdict_cmds[category]))))
+            category_strings.append(category_string)
+        string += telnet_only("\n").join(category_strings)
     if hdict_db and hdict_db.values():
         string += "\n\r\n\r" + "-"*70 + "\n\r  {gOther help entries{n\n" + '-'*70 
         for category in sorted(hdict_db.keys()):
