@@ -115,6 +115,7 @@ class AnsiState:
            attrs.append('color:%s' % self.foreground)
         if len(attrs):
             retval += "<span style='%s'>" % (u";".join(attrs))
+            self.open_span = True
         return retval
         
        
@@ -123,6 +124,7 @@ class RTFakeSessionProtocol:
     def __init__(self, client, host):
         self.client = client
         self.host = host
+        self.ansi_state = AnsiState()
     def write(self, txt):
         self.client.send(txt)
     mode = 'WaitForUser'
@@ -133,7 +135,6 @@ class RTFakeSessionProtocol:
             self.htmlBuffer = u""
             self.javascriptBuffer = u""
             self.trappingANSI = False
-            self.ansi_state = AnsiState()
         while chunk != "":
             c = chunk[0]
             chunk = chunk[1:]
