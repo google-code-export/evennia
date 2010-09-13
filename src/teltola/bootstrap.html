@@ -8,10 +8,16 @@
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
         <script type="text/javascript">
 
+var sent_nodes = new Array()
+
 function addText(text) {
+    if(sent_nodes.length == 1000) {
+        document.getElementById('commandOutput').removeChild(sent_nodes.shift());
+    }
     newNode = document.createElement("div");
     newNode.innerHTML = text;
     document.getElementById('commandOutput').appendChild(newNode);
+    sent_nodes.push(newNode);
 }
 
 function remoteEval(text) {
