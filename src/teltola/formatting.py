@@ -95,4 +95,4 @@ def hr():
     return "%xh<hr />%xt\n" + ("-" * 70) + "%xu"
 
 def h2(txt):
-    return tag("h2", txt, alt=("\n\r" + "-"*70 + "\n\r  {g","{n\n" + "-"*70))
+    return tag("h2", txt, alt=("\n\r" + "-"*70 + "\n\r  {g","{n\n" + "-"*70+"\n\r"))
