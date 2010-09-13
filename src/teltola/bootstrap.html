@@ -1,0 +1,86 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns:nevow="http://nevow.com/ns/nevow/0.1">
+    <head>
+        <title>
+            Teltola
+        </title>
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+        <script type="text/javascript">
+
+function addText(text) {
+    newNode = document.createElement("div");
+    newNode.innerHTML = text;
+    document.getElementById('commandOutput').appendChild(newNode);
+}
+
+function remoteEval(text) {
+    eval(text);
+}
+
+function focusInput() {
+    var il = document.inputForm.inputLine;
+    il.focus();
+    il.value = '';
+    scrollDown();
+}
+
+function scrollDown() {
+    var bottom = document.getElementById('bottom')
+    if (bottom.scrollIntoView) {
+        bottom.scrollIntoView()
+    } else {
+        window.scrollTo(0, 9999999);
+    }
+}
+
+function removeNode(nodeId) {
+    var node = window.document.getElementById(nodeId);
+    node.parentNode.removeChild(node);
+}
+
+function changeId(old, newe) {
+    window.document.getElementById(old).id = newe;
+}
+
+function cmd(txt) {
+    server.handle('sendInput',txt)
+}
+
+
+        </script>
+        <style type="text/css">
+body { font-family: Verdana, sans-serif; margin: 0px; padding: 0px }
+.userid { font-weight: bold; margin-right: 15px }
+.message { font-size: small }
+.timestamp { float: right; font-size: x-small; }
+#inputLine { width: 80%; }
+#topic,#content { padding: 0.5em }
+
+#topic { background-color: #efefef; 
+    position: fixed; top: 0px; left: 0px; right: 0px; height: 1.5em; overflow: auto; }
+#content { margin-top: 2em; margin-right: 230px; }
+#nick-change-notification { margin-left: 15px; }
+
+
+        </style>
+<!-- TinyMCE doesn't load dynamically well without source hacks -->
+<script type="text/javascript" src="http://tinymce.moxiecode.com/js/tinymce/jscripts/tiny_mce/tiny_mce.js"></script>
+    </head>
+    <body>
+        <div id="content">
+            <div nevow:pattern="message">
+                <span class="timestamp"><nevow:slot name="timestamp" /></span>
+                <span class="userid"><nevow:slot name="userid" /></span>
+                <span class="message"><nevow:slot name="message" /></span>
+            </div>
+        </div>
+        <div id="commandOutput" />
+        <form name="inputForm" onsubmit="server.handle('sendInput', this.inputLine.value); return false;">
+          <input name="inputLine" id="inputLine" autocomplete="off"  />
+          <!--<input type="submit" value="say" />-->
+        </form>
+        <span nevow:render="liveglue" />
+        <span id="bottom" />
+    </body>
+</html>

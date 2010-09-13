@@ -21,6 +21,7 @@ from src.commands.cmdsethandler import CmdSetHandler
 from src.scripts.scripthandler import ScriptHandler
 from src.objects.exithandler import EXITHANDLER
 from src.utils import utils
+from src.teltola.formatting import *
 
 #
 # Base class to inherit from. 
@@ -203,10 +204,10 @@ class Object(TypeClass):
         """
         if not pobject:
             return 
-        string = "{c%s{n" % self.name
+        string = tag("h1", self.name, alt=("{c","{n"))
         desc = self.attr("desc")
         if desc:
-            string += ":\n %s" % desc
+            string += "%%xt:\n %%xu%s" % tag("div", desc, extra="class='room_description'")
         exits = [] 
         users = []
         things = []
@@ -221,14 +222,15 @@ class Object(TypeClass):
             else:
                 things.append(name)
         if exits:
-            string += "\n{wExits:{n " + ", ".join(exits)
+            string += tag("div", "%xt\n{w%xh<b>%xuExits:{n %xh</b>%xu" + ", ".join(map(lambda exit: a(exit, "%s" % exit), exits)), extra="class='room_exits'")
         if users or things:
-            string += "\n{wYou see: {n"
+            bit = ""
             if users: 
-                string += "{c" + ", ".join(users) + "{n "
+                bit += "{c" + ", ".join(map(lambda user: a(user, cmd="look %s" % user),users)) + "{n "
             if things: 
-                string += ", ".join(things)            
-        return string
+                bit += ", ".join(map(lambda thing: a(thing, cmd="look %s" % thing), things))
+            string += tag("div","%xt\n{w%xu%xh<b>%xuYou see: %xh</b>%xt{n%xu"+bit, extra="class='room_stuff'")
+        return manual(tag("div", string, extra="style='width:600px;border:2px solid black'"))
 
     def at_msg_receive(self, msg, from_obj=None):
         """

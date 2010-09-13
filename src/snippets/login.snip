@@ -1,0 +1,34 @@
+<div style=
+"background-color:#aaccff;padding:1em;magin-left:auto;margin-right:auto;width:30em;">
+<div id='login_existing_div'>
+    <h2>Login</h2>
+
+    <form method='post' action='dummy' onsubmit=
+    "cmd('connect '+document.getElementById('login_email').value+' '+document.getElementById('login_password').value); return false">
+    Email: <input type='text' id='login_email'><br>
+      Password: <input type='password' id='login_password'><br>
+      <input type='submit' value='Log In'>
+    </form>
+
+    <p>No character? <a href='#' onclick=
+    "document.getElementById('login_existing_div').style.display='none';document.getElementById('login_create_div').style.display='block';return false">
+    create one</a>.</p>
+  </div>
+
+  <div id='login_create_div' style='display:none'>
+    <h2>Create Character</h2>
+
+    <form method='post' action='dummy' onsubmit=
+    "cmd('create '+document.getElementById('login_create_username').value+' '+document.getElementById('login_create_email').value+' '+document.getElementById('login_create_password').value); return false">
+    Username: <input type='text' id='login_create_username'><br>
+      Email: <input type='text' id='login_create_email'><br>
+      Password: <input type='password' id=
+      'login_create_password'><br>
+      <input type='submit' value='Create'>
+    </form>
+
+    <p>Already got a character? <a href='#' onclick=
+    "document.getElementById('login_create_div').style.display='none';document.getElementById('login_existing_div').style.display='block';return false">
+    log it in</a>.</p>
+  </div>
+</div>
