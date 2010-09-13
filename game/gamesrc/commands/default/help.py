@@ -12,6 +12,7 @@ from src.help.models import HelpEntry
 from src.permissions.permissions import has_perm
 from src.utils import create 
 from game.gamesrc.commands.default.muxcommand import MuxCommand
+from src.teltola.formatting import *
 
 LIST_ARGS = ["list", "all"]
 
@@ -20,18 +21,18 @@ def format_help_entry(title, help_text, aliases=None,
     """
     This visually formats the help entry.
     """            
-    string = "-"*70 + "\n"
+    string = hr()#"-"*70 + "\n"
     if title: 
-        string += "Help topic for {w%s{n" % (title.capitalize()) 
+        string += tag("h1", "Help topic for %s" % (telnet_tag(title.capitalize(), "{w", "{n")))
     if aliases:
         string += " (aliases: %s)" % (", ".join(aliases))
     if help_text:
         string += "\n%s" % dedent(help_text.rstrip())
     if suggested:
         string += "\nSuggested:\n"
-        string += fill(", ".join(suggested))    
+        string += fill(", ".join(map(lambda cmd: a(cmd,"help %s" % cmd), suggested)))    
     string.strip()
-    string += "\n" + "-"*70
+    string += hr()#"\n" + "-"*70
     return string 
 
 def format_help_list(hdict_cmds, hdict_db):
@@ -40,17 +41,17 @@ def format_help_list(hdict_cmds, hdict_db):
     """    
     string = ""
     if hdict_cmds and hdict_cmds.values():
-        string += "\n\r" + "-"*70 + "\n\r  {gCommand help entries{n\n" + "-"*70
+        #string += "\n\r" + "-"*70 + "\n\r  {gCommand help entries{n\n" + "-"*70
+        string += h2("Command help entries")
         for category in sorted(hdict_cmds.keys()):
-            string += "\n  {w%s{n:\n" % \
-                (str(category).capitalize()) 
-            string += fill(", ".join(sorted(hdict_cmds[category])))
+            string += tag("h3", str(category).capitalize(),alt=("\n  {w", "{n:\n"))
+            string += fill(", ".join(map(lambda cmd: a(cmd, "help %s" % cmd),sorted(hdict_cmds[category]))))
     if hdict_db and hdict_db.values():
         string += "\n\r\n\r" + "-"*70 + "\n\r  {gOther help entries{n\n" + '-'*70 
         for category in sorted(hdict_db.keys()):
             string += "\n\r  {w%s{n:\n" % (str(category).capitalize()) 
-            string += fill(", ".join(sorted([str(topic) for topic in hdict_db[category]])))
-    return string 
+            string += fill(", ".join(map(lambda topic: a(topic,"help %s" % topic), sorted([str(topic) for topic in hdict_db[category]]))))
+    return manual(tag("div", string, extra="style='width:600px;border:2px solid black'"))
 
 class CmdHelp(Command):
     """
@@ -175,7 +176,6 @@ class CmdHelp(Command):
             dbalts = [entry.key for entry in dbmatches]
             helptext = "Multiple help entries match your search ..."
             help_entry = format_help_entry("", helptext, None, cmdalts + dbalts)
-
         # send result to user
         caller.msg(help_entry)
 

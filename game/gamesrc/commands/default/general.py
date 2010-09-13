@@ -10,6 +10,8 @@ from src.objects.models import HANDLE_SEARCH_ERRORS
 from src.utils import utils
 
 from game.gamesrc.commands.default.muxcommand import MuxCommand
+from src.teltola.formatting import *
+
 
 class CmdLook(MuxCommand):
     """
@@ -424,10 +426,17 @@ class CmdWho(MuxCommand):
         else:
             show_session_data = has_perm_string(caller, "Immortals,Wizards")
 
+        retval = ""
+
         if show_session_data:
-            retval = "Player Name                        On For Idle   Room    Cmds   Host\n\r"
+            retval += telnet_only("Player Name                        On For Idle   Room    Cmds   Host\n\r")
+            columns = ["Player Name", "On For", "Idle", "Room", "Cmds", "Host"]
         else:
-            retval = "Player Name                        On For Idle\n\r"
+            retval += telnet_only("Player Name                        On For Idle\n\r")
+            columns = ["Player Name", "On For", "Idle"]
+        html_row_ths = map(lambda d: u"<th>%s</th>" % d, columns)
+        retval += html("<table><tr>%s</tr>" % "".join(html_row_ths))
+        
 
         for session in session_list:
             if not session.logged_in:
@@ -437,7 +446,7 @@ class CmdWho(MuxCommand):
             plr_pobject = session.get_character()
 
             if show_session_data:
-                retval += '%-31s%9s %4s%-3s#%-6d%5d%3s%-25s\r\n' % \
+                row_data = \
                     (plr_pobject.name[:25], \
                     # On-time
                     utils.time_format(delta_conn,0), \
@@ -451,8 +460,11 @@ class CmdWho(MuxCommand):
                     # More flags?
                     '', \
                     session.address[0])
+                retval += telnet_only('%-31s%9s %4s%-3s#%-6d%5d%3s%-25s\n\r' % row_data)
+                html_escaped_row = map(lambda d: u"<td>%s</td>" % d, row_data)
+                retval += html("<tr>" + "".join(html_escaped_row) + "</tr>")
             else:
-                retval += '%-31s%9s %4s%-3s\r\n' % \
+                row_data = \
                     (plr_pobject.name[:25], \
                     # On-time
                     utils.time_format(delta_conn,0), \
@@ -460,9 +472,11 @@ class CmdWho(MuxCommand):
                     utils.time_format(delta_cmd,1), \
                     # Flags
                     '')
+                retval += '%-31s%9s %4s%-3s\n\r' % row_data
+        retval += html("</table>")
         retval += '%d Players logged in.' % (len(session_list),)
 
-        caller.msg(retval)
+        caller.msg(manual(retval))
 
 class CmdSay(MuxCommand):
     """
