@@ -95,3 +95,7 @@ class DefaultCmdSet(CmdSet):
         self.add(tests.CmdTestPerms())
         self.add(tests.TestCom())
         self.add(tests.CmdDebug())    
+
+        # Start MUD-type commands, definately needs tsome clean-up
+        from game.gamesrc.commands.fuss_importer import importer
+        self.add(importer.CmdFussImport)

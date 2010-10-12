@@ -49,7 +49,7 @@ multivalued.append(("skill", "Affect"))
 
 class KeyFile:
     def __init__(self, filename, root_element = None, sub_root_element_name=None):
-	f = open(os.path.sep.join([FOREIGN_MUD_ROOT, filename]))
+	f = FOREIGN_MUD_TARFILE.extractfile(os.path.sep.join([settings.DEFAULT_FUSS_TGZ_DOWNLOAD_RELATIVE_ROOT,filename]))
         self.buffer = f.read()
 	f.close()
         expected_tag_stack = []
@@ -182,7 +182,7 @@ class KeyFile:
 def import_from_list(dir_name, list_name, root_node, collection_node_name, sub_root_element_name = None):
     collection_node = doc.createElement(collection_node_name)
     root_node.appendChild(collection_node)
-    f = open(os.path.sep.join([FOREIGN_MUD_ROOT, dir_name, list_name]))
+    f = FOREIGN_MUD_TARFILE.extractfile(os.path.sep.join([settings.DEFAULT_FUSS_TGZ_DOWNLOAD_RELATIVE_ROOT,dir_name, list_name]))
     buf = f.read()
     f.close()
     for line in buf.split("\n"):
@@ -191,11 +191,11 @@ def import_from_list(dir_name, list_name, root_node, collection_node_name, sub_r
 	else:
             KeyFile(os.path.sep.join([dir_name, line.strip()]), collection_node, sub_root_element_name)
 
-FOREIGN_MUD_ROOT = None
+FOREIGN_MUD_TARFILE = None
 doc = xml.dom.minidom.Document()
 
 def parse_mud_root_to_dom():
-    key_defs_file = open(os.path.sep.join([settings.GAME_DIR, "world", "fuss_importer", "key_data_types.txt"]))
+    key_defs_file = open(os.path.sep.join([settings.GAME_DIR, "gamesrc", "world", "fuss_importer", "key_data_types.txt"]))
     kdf = key_defs_file.read().strip()
     key_defs_file.close()
 
@@ -226,6 +226,7 @@ def parse_mud_root_to_dom():
     return doc
 
 if __name__ == "__main__":
-    FOREIGN_MUD_ROOT = "."
+    from tarfile import open as tarfile_open
+    FOREIGN_MUD_TARFILE = tarfile_open("/tmp/my_tarfile.tgz")
     parse_mud_root_to_dom()
     print doc.toprettyxml()
