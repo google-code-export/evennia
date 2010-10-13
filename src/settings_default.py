@@ -314,6 +314,19 @@ TELTOLA_ENABLED = False
 # Which port should we run on (e.g. 2300)
 TELTOLA_PORT = 2300
 
+###################################################
+# Web media config
+###################################################
+
+# This enables a static web server to serve media files
+
+# Activate the telnet-like web interface bot. 
+WEB_MEDIA_ENABLED = False
+# Which port should we run on (e.g. 4570)
+WEB_MEDIA_PORT = 4570
+# Directory which will be exposed by the web server
+WEB_MEDIA_DIR = os.path.join(GAME_DIR, 'media')
+
 
 ###################################################
 # Config for Django web features
