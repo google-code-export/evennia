@@ -157,6 +157,16 @@ class EvenniaService(service.Service):
             strports.service(str(settings.TELTOLA_PORT), site).setServiceParent(self.service_collection)
             teltolaResource.serviceParent = self.service_collection
 
+        if settings.WEB_MEDIA_ENABLED:
+            from twisted.web.server import Site
+            from twisted.web.static import File
+            static_web_resource = File(settings.WEB_MEDIA_DIR)
+            static_web_factory = Site(static_web_resource)
+            svc = internet.TCPServer(
+                                     settings.WEB_MEDIA_PORT, 
+                                     static_web_factory)
+            svc.setName('web_media')
+            svc.setServiceParent(self.service_collection)
 
 # Twisted requires us to define an 'application' attribute.
 application = service.Application('Evennia') 
