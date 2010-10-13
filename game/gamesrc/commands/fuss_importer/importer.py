@@ -32,14 +32,15 @@ class CmdFussImport(MuxCommand):
         for room in roomNodeList:
 	    room_alias = room.getAttribute("Vnum")
 	    room_name = room.getAttribute("Name")
-	    new_room = create.create_object(settings.BASE_ROOM_TYPECLASS, room_name, aliases=["#%sr" % room_alias])
-            new_room.db.vnum = "#%sr" % room_alias
+            vnum = "#%sr" % room.getAttribute("Vnum")
+	    new_room = create.create_object(settings.BASE_ROOM_TYPECLASS, room_name, aliases=vnum)
+            #new_room.db.vnum = "#%sr" % room_alias
         # then import doors
         #for room in roomNodeList:
         #    exitNodeList = dom.getElementsByTagName("door")
         #    room = 
-        results = ObjectDB.objects.get_objs_with_attr_match("vnum", "10300r")
-        caller.msg("Found %s items  with vnum = 10300r." % len(results))
+        results = caller.search(vnum)
+        caller.msg("Found %s items  with vnum = %s." % (vnum, len(results)))
             
         caller.msg("Done.")
         caller.msg("Found %s rooms." % len(roomNodeList))
