@@ -21,3 +21,8 @@ def download_and_parse(url, expected_checksum):
     doc = parse_files.parse_mud_root_to_dom()
     unlink(filename)
     return doc
+
+def parse_local(filename):
+    parse_files.FOREIGN_MUD_TARFILE = tarfile_open(filename)
+    doc = parse_files.parse_mud_root_to_dom()
+    return doc
