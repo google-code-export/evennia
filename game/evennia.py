@@ -61,7 +61,7 @@ if os.name == 'nt':
                          os.pardir, os.pardir, os.pardir, os.pardir, 
                          'scripts', 'twistd.py'))        
         bat_file = open('twistd.bat','w')
-        bat_file.write("@%s %%*" % twistd_path)
+        bat_file.write("@\"%s\" \"%s\" %%*" % (sys.executable, twistd_path))
         bat_file.close()
         print """
     INFO: Since you are running Windows, a file 'twistd.bat' was
@@ -162,7 +162,6 @@ def stop_server(parser, options, args):
     else:
         print '\n\rUnknown OS detected, can not stop. '
         
-
 def main():
     """
     Beginning of the program logic.
@@ -176,14 +175,14 @@ def main():
                       dest='interactive',
                       help='Start in daemon mode (default)')
     (options, args) = parser.parse_args()
-    
+        
     if "start" in args:
         if options.interactive:
             start_interactive(parser, options, args)
         else:
             start_daemon(parser, options, args)
     elif "stop" in args:
-        stop_server(parser, options, args)
+        stop_server(parser, options, args)    
     else:
         parser.print_help()
 if __name__ == '__main__':
