@@ -1,18 +1,20 @@
-from weakref import WeakValueDictionary
+from weakref import WeakValueDictionary, ref
 
 from django.db.models.base import Model, ModelBase
 
 from manager import SharedMemoryManager
 
-class SharedMemoryModelBase(ModelBase):
-    def __new__(cls, name, bases, attrs):
-        super_new = super(ModelBase, cls).__new__
-        parents = [b for b in bases if isinstance(b, SharedMemoryModelBase)]
-        if not parents:
-            # If this isn't a subclass of Model, don't do anything special.
-            return super_new(cls, name, bases, attrs)
+TCACHE = {} # test cache, for debugging /Griatch
 
-        return super(SharedMemoryModelBase, cls).__new__(cls, name, bases, attrs)
+class SharedMemoryModelBase(ModelBase):
+    #def __new__(cls, name, bases, attrs):
+    #    super_new = super(ModelBase, cls).__new__
+    #    parents = [b for b in bases if isinstance(b, SharedMemoryModelBase)]
+    #    if not parents:
+    #        # If this isn't a subclass of Model, don't do anything special.
+    #        print "not a subclass of Model", name, bases
+    #        return super_new(cls, name, bases, attrs)
+    #    return super(SharedMemoryModelBase, cls).__new__(cls, name, bases, attrs)
 
     def __call__(cls, *args, **kwargs):
         """
@@ -37,7 +39,7 @@ class SharedMemoryModelBase(ModelBase):
         return cached_instance
 
     def _prepare(cls):
-        cls.__instance_cache__ = WeakValueDictionary()
+        cls.__instance_cache__ = {} #WeakValueDictionary()
         super(SharedMemoryModelBase, cls)._prepare()
         
         
@@ -47,6 +49,9 @@ class SharedMemoryModel(Model):
     # subclass now?
     __metaclass__ = SharedMemoryModelBase
 
+    class Meta:
+        abstract = True 
+    
     def _get_cache_key(cls, args, kwargs):
         """
         This method is used by the caching subsystem to infer the PK value from the constructor arguments. 
@@ -91,7 +96,11 @@ class SharedMemoryModel(Model):
         Method to store an instance in the cache.
         """
         if instance._get_pk_val() is not None:
-            cls.__instance_cache__[instance._get_pk_val()] = instance
+            cls.__instance_cache__[instance._get_pk_val()] = instance        
+            #key = "%s-%s" % (cls, instance.pk)            
+            #TCACHE[key] = instance
+            #print "cached: %s (%s: %s) (total cached: %s)" % (instance, cls.__name__, len(cls.__instance_cache__), len(TCACHE))
+        
     cache_instance = classmethod(cache_instance)
 
     def _flush_cached_by_key(cls, key):
@@ -104,6 +113,10 @@ class SharedMemoryModel(Model):
         since this is most likely called from delete(), and we want to make sure we don't cache dead objects.
         """
         cls._flush_cached_by_key(instance._get_pk_val())
+        #key = "%s-%s" % (cls, instance.pk)            
+        #del TCACHE[key]
+        #print "uncached: %s (%s: %s) (total cached: %s)" % (instance, cls.__name__, len(cls.__instance_cache__), len(TCACHE))
+
     flush_cached_instance = classmethod(flush_cached_instance)
     
     def save(self, *args, **kwargs):

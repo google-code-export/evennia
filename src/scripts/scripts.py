@@ -34,7 +34,7 @@ class ScriptClass(TypeClass):
 
     def _start_task(self):
         "start the task runner."
-        if self.interval:
+        if self.interval > 0:
             #print "Starting task runner"
             start_now = not self.start_delay
             self.ndb.twisted_task = task.LoopingCall(self._step_task)
@@ -247,7 +247,7 @@ class ValidateScripts(Script):
 
     def at_repeat(self):
         "called every hour"        
-        print "ValidateScripts run."
+        #print "ValidateScripts run."
         ScriptDB.objects.validate()
 
 class ValidateChannelHandler(Script):
@@ -262,7 +262,7 @@ class ValidateChannelHandler(Script):
     
     def at_repeat(self):
         "called every hour+"
-        print "ValidateChannelHandler run."
+        #print "ValidateChannelHandler run."
         channelhandler.CHANNELHANDLER.update()
                 
 class AddCmdSet(Script):
@@ -308,9 +308,7 @@ class AddCmdSet(Script):
         """
         This removes the cmdset when the script stops
         """
-        cmdset = self.db.cmdset
-
-        print "AddCmdSets: at_stop() for %s called." % self.obj
+        cmdset = self.db.cmdset        
         if cmdset:
             if self.db.add_default:
                 self.obj.cmdset.delete_default()

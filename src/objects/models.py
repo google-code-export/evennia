@@ -20,6 +20,7 @@ except ImportError:
 from django.db import models
 from django.conf import settings
 
+from src.utils.idmapper.models import SharedMemoryModel
 from src.typeclasses.models import Attribute, TypedObject
 from src.typeclasses.typeclass import TypeClass
 from src.objects.manager import ObjectManager
@@ -52,7 +53,27 @@ class ObjAttribute(Attribute):
         verbose_name = "Object Attribute"
         verbose_name_plural = "Object Attributes"
 
-        
+#------------------------------------------------------------
+#
+# Alias
+#
+#------------------------------------------------------------
+
+class Alias(SharedMemoryModel):
+    """
+    This model holds a range of alternate names for an object.
+    These are intrinsic properties of the object. The split
+    is so as to allow for effective global searches also by
+    alias. 
+    """    
+    db_key = models.CharField(max_length=255)
+    db_obj = models.ForeignKey("ObjectDB")
+    
+    class Meta:
+        "Define Django meta options"
+        verbose_name = "Object alias"
+        verbose_name_plural = "Object aliases"
+
 #------------------------------------------------------------
 #
 # ObjectDB
@@ -76,7 +97,7 @@ class ObjectDB(TypedObject):
       typeclass - auto-linked typeclass
       date_created - time stamp of object creation
       permissions - perm strings 
-      dbref - #id of object 
+      Dbref - #id of object 
       db - persistent attribute storage
       ndb - non-persistent attribute storage 
 
@@ -108,7 +129,7 @@ class ObjectDB(TypedObject):
 
     # comma-separated list of alias-names of this object. Note that default
     # searches only search aliases in the same location as caller. 
-    db_aliases = models.CharField(max_length=255, blank=True)
+    db_aliases = models.ForeignKey(Alias, blank=True, null=True, db_index=True)
     # If this is a character object, the player is connected here.
     db_player = models.ForeignKey("players.PlayerDB", blank=True, null=True)    
     # The location in the game world. Since this one is likely
@@ -138,20 +159,20 @@ class ObjectDB(TypedObject):
     #@property 
     def aliases_get(self):
         "Getter. Allows for value = self.aliases"
-        if self.db_aliases:
-            return [alias for alias in self.db_aliases.split(',')]    
-        return []
+        return [alias.db_key for alias in Alias.objects.filter(db_obj=self)]    
     #@aliases.setter
     def aliases_set(self, aliases):
-        "Setter. Allows for self.aliases = value"
+        "Setter. Allows for self.aliases = value"        
         if not is_iter(aliases):
-            aliases = str(aliases).split(',')
-        self.db_aliases = ",".join([alias.strip() for alias in aliases])
-        self.save()
+            aliases = [aliases]            
+        for alias in aliases:
+            new_alias = Alias(db_key=alias, db_obj=self)
+            new_alias.save()
     #@aliases.deleter
     def aliases_del(self):
         "Deleter. Allows for del self.aliases"
-        self.db_aliases = ""
+        for alias in Alias.objects.filter(db_obj=self):
+            alias.delete()
     aliases = property(aliases_get, aliases_set, aliases_del)
 
     # player property (wraps db_player)
@@ -414,6 +435,8 @@ class ObjectDB(TypedObject):
         ostring: (str) The string to match object names against.
                        Obs - To find a player, append * to the
                        start of ostring. 
+        global_search: Search all objects, not just the current
+                       location/inventory
         attribute_name: (string) Which attribute to match
                         (if None, uses default 'name')
         use_nicks : Use nickname replace (off by default)              
@@ -448,8 +471,8 @@ class ObjectDB(TypedObject):
                         break 
 
         results = ObjectDB.objects.object_search(self, ostring, 
-                                                 global_search,
-                                                 attribute_name)
+                                                 global_search=global_search,
+                                                 attribute_name=attribute_name)
     
         if ignore_errors:
             return results
@@ -713,3 +736,12 @@ class ObjectDB(TypedObject):
 
 # Deferred import to avoid circular import errors. 
 from src.commands import cmdhandler
+
+
+# from src.typeclasses import idmap
+# class CachedObj(models.Model):
+#     key = models.CharField(max_length=255, null=True, blank=True)
+#     test = models.BooleanField(default=False)
+#     objects = idmap.CachingManager()
+#     def id(self):
+#         return id(self)
