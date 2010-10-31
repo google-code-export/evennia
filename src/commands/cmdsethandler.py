@@ -77,7 +77,7 @@ def import_cmdset(python_path, cmdsetobj, emit_to_obj=None, no_logging=False):
     instance from a python module, given a python_path. It's usually accessed
     through the cmdsethandler's add() and add_default() methods. 
     python_path - This is the full path to the cmdset object. 
-    cmsetobj - the database object/typeclass on which this cmdset is to be assigned 
+    cmdsetobj - the database object/typeclass on which this cmdset is to be assigned 
                (this can be also channels and exits, as well as players but there will 
                always be such an object)
     emit_to_obj - if given, error is emitted to this object (in addition to logging)
@@ -88,6 +88,7 @@ def import_cmdset(python_path, cmdsetobj, emit_to_obj=None, no_logging=False):
 
     try:
         try:                        
+            #print "importing %s: CACHED_CMDSETS=%s" % (python_path, CACHED_CMDSETS)
             wanted_cache_key = python_path            
             cmdsetclass = CACHED_CMDSETS.get(wanted_cache_key, None)
             errstring = ""
@@ -118,6 +119,7 @@ def import_cmdset(python_path, cmdsetobj, emit_to_obj=None, no_logging=False):
             raise
     except Exception:            
         if errstring and not no_logging:
+            print errstring 
             logger.log_trace()    
             if emit_to_obj:
                 emit_to_obj.msg(errstring)
@@ -162,6 +164,8 @@ class CmdSetHandler(object):
         # this tracks which mergetypes are actually in play in the stack
         self.mergetype_stack = ["Union"] 
         self.update()
+
+        #print "cmdsethandler init. id:%s, obj:%s, cmdsetstack:%s " % (id(self), self.obj.key,  [cmdset.key for cmdset in self.cmdset_stack])
                                                                 
     def __str__(self):
         "Display current commands"                
