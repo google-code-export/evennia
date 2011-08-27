@@ -51,6 +51,17 @@ class Player(TypeClass):
         pass
  
 
+    def at_init(self):
+        """
+        This is always called whenever this 
+        object initiated -- both when the object
+        is first created as well as after each restart.
+        It is also called after each server reload, so 
+        if something should survive a warm-reboot (rebooting
+        the server without the players logging out), put it here.
+        """
+        pass 
+
     # Note that the hooks below also exist
     # in the character object's typeclass. You
     # can often ignore these and rely on the
