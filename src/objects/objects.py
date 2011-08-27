@@ -75,6 +75,17 @@ class Object(TypeClass):
         """ 
         pass
 
+    def at_init(self):
+        """
+        This is always called whenever this 
+        object initiated -- both when the object
+        is first created as well as after each restart.
+        It is also called after each server reload, so 
+        if something should survive a warm-reboot (rebooting
+        the server without the players logging out), put it here.
+        """
+        pass 
+
     def basetype_posthook_setup(self):
         """
         Called once, after basetype_setup and at_object_creation. This should generally not be overloaded unless
