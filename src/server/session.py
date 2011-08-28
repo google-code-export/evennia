@@ -33,7 +33,7 @@ class Session(object):
     """
 
     # names of attributes that should be affected by syncing.
-    _attrs_to_sync = ['protocol_key', 'address', 'sessid', 'uid', 'uname', 
+    _attrs_to_sync = ['protocol_key', 'address', 'suid', 'sessid', 'uid', 'uname', 
                       'logged_in', 'cid', 'ndb', 'encoding', 
                       'conn_time', 'cmd_last', 'cmd_last_visible', 'cmd_total']    
 
@@ -49,6 +49,8 @@ class Session(object):
         self.protocol_key = protocol_key
         # Protocol address tied to this session
         self.address = address
+        # suid is used by some protocols, it's a hex key.
+        self.suid = None 
         
         # unique id for this session 
         self.sessid = 0 # no sessid yet

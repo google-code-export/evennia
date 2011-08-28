@@ -230,8 +230,8 @@ if SSH_ENABLED:
         for port in SSH_PORTS:
             pstring = "%s:%s" % (ifacestr, port)
             factory = ssh.makeFactory({'protocolFactory':ssh.SshProtocol,
-                                       'protocolArgs':()})        
-            factory.sessionhandler = PORTAL_SESSIONS
+                                       'protocolArgs':(),
+                                       'sessions':PORTAL_SESSIONS})        
             ssh_service = internet.TCPServer(port, factory, interface=interface)
             ssh_service.setName('EvenniaSSH%s' % pstring)
             PORTAL.services.addService(ssh_service)
