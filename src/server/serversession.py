@@ -20,43 +20,6 @@ IDLE_COMMAND = settings.IDLE_COMMAND
 from src.server.session import Session
 
 
-def _login(session, player):
-    """
-    For logging a player in.  Removed this from CmdConnect because ssh
-    wanted to call it for autologin.
-    """
-    # We are logging in, get/setup the player object controlled by player
-
-    # Check if this is the first time the 
-    # *player* connects (should be set by the 
-    if player.db.FIRST_LOGIN:
-        player.at_first_login()
-        del player.db.FIRST_LOGIN
-    player.at_pre_login()        
-
-    character = player.character
-    if character: 
-        # this player has a character. Check if it's the
-        # first time *this character* logs in (this should be 
-        # set by the initial create command)
-        if character.db.FIRST_LOGIN:
-            character.at_first_login()
-            del character.db.FIRST_LOGIN            
-        # run character login hook
-        character.at_pre_login()
-
-    # actually do the login
-    session.session_login(player)
-
-    # post-login hooks 
-    player.at_post_login()        
-    if character:
-        character.at_post_login()
-        character.execute_cmd('look')
-    else:
-        player.execute_cmd('look')
-
-
 #------------------------------------------------------------
 # Server Session
 #------------------------------------------------------------
@@ -90,6 +53,8 @@ class ServerSession(Session):
             player.at_init()
         if character:
             character.at_init()
+            # start (persistent) scripts on this object
+            ScriptDB.objects.validate(obj=character)
                        
     def session_login(self, player):
         """
@@ -252,7 +217,7 @@ class ServerSession(Session):
             symbol = '?'
         try:
             address = ":".join([str(part) for part in self.address])            
-        except ValueError:
+        except Exception:
             address = self.address            
         return "<%s> %s@%s" % (symbol, self.uname, address)
 

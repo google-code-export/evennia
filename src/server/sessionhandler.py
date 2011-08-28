@@ -38,9 +38,9 @@ class SessionHandler(object):
         Returns the connected session objects.
         """
         if include_unloggedin:
-            return self.sessions
+            return self.sessions.values()
         else:
-            return [session for session in self.sessions if session.logged_in]
+            return [session for session in self.sessions.values() if session.logged_in]
 
     def get_session(self, sessid):
         """
@@ -201,15 +201,6 @@ class ServerSessionHandler(SessionHandler):
             self.session_count(-1)
 
 
-    def get_sessions(self, include_unloggedin=False):
-        """
-        Returns the connected session objects.
-        """
-        if include_unloggedin:
-            return self.sessions
-        else:
-            return [session for session in self.sessions if session.logged_in]
-
     def validate_sessions(self):
         """
         Check all currently connected sessions (logged in and not) 
@@ -329,10 +320,8 @@ class PortalSessionHandler(SessionHandler):
         Called by protocol at first connect. This adds a not-yet authenticated session
         using an ever-increasing counter for sessid. 
         """        
-
         self.latest_sessid += 1
         sessid = self.latest_sessid
-        session.logged_in = False
         session.sessid = sessid
         sessdata = session.get_sync_data()
         self.sessions[sessid] = session
@@ -370,7 +359,8 @@ class PortalSessionHandler(SessionHandler):
         Given a session id, retrieve the session (this is primarily
         intended to be called by web clients)
         """
-        return [sess for sess in self.get_sessions(include_unloggedin=True) if sess.suid and sess.suid == suid]
+        return [sess for sess in self.get_sessions(include_unloggedin=True) 
+                if hasattr(sess, 'suid') and sess.suid == suid]
 
     def data_in(self, session, string="", data=""):
         """

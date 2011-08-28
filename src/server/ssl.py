@@ -9,7 +9,7 @@ try:
     import OpenSSL
 except ImportError:
     print "  SSL_ENABLED requires PyOpenSSL."
-    sys.exit()
+    sys.exit(5)
 
 from src.server.telnet import TelnetProtocol
 
@@ -44,7 +44,7 @@ def verify_SSL_key_and_cert(keyfile, certfile):
         except Exception,e: 
             print "rsaKey error: %s\n WARNING: Evennia could not auto-generate SSL private key." % e
             print "If this error persists, create game/%s yourself using third-party tools." % keyfile
-            sys.exit()
+            sys.exit(5)
             
         # try to create the certificate
         CERT_EXPIRE = 365 * 20 # twenty years validity        
@@ -60,8 +60,8 @@ def verify_SSL_key_and_cert(keyfile, certfile):
             print "  A private key 'ssl.key' was already created. Please create %s manually using the commands valid " % certfile
             print "  for your operating system." 
             print "  Example (linux, using the openssl program): "
-            print "    %s" % exestring
-            sys.exit()
+            print "    %s" % exestring            
+            sys.exit(5)
         print "done."
 
 def getSSLContext():

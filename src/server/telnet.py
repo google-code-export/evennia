@@ -71,7 +71,7 @@ class TelnetProtocol(StatefulTelnetProtocol, Session):
         raw = False                                                                                                    
         if type(data) == dict:                                                                                         
             # check if we want escape codes to go through unparsed.
-            raw = data.get("raw", self.telnet_markup)
+            raw = data.get("raw", False)
             # check if we want to remove all markup
             nomarkup = data.get("nomarkup", False)
         if raw:                                                                                                        
