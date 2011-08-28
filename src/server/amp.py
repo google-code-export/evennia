@@ -29,6 +29,11 @@ from src.server.serversession import ServerSession
 PORTAL_RESTART = os.path.join(settings.GAME_DIR, "portal.restart")
 SERVER_RESTART = os.path.join(settings.GAME_DIR, "server.restart")
 
+# Signals
+
+
+
+
 def get_restart_mode(restart_file):
     """
     Parse the server/portal restart status
@@ -184,7 +189,8 @@ class AMPProtocol(amp.AMP):
         """
         if hasattr(self.factory, "portal"):
             sessdata = self.factory.portal.sessions.get_all_sync_data()
-            self.call_remote_ServerAdmin(0, "portal_session_sync", 
+            self.call_remote_ServerAdmin(0, 
+                                         "PSYNC", 
                                          data=sessdata)
             if get_restart_mode(SERVER_RESTART):
                 msg = " ... Server restarted."
@@ -255,18 +261,18 @@ class AMPProtocol(amp.AMP):
 
         #print "serveradmin (server side):", sessid, operation, data
 
-        if operation == 'portal_session_connect':
+        if operation == 'PCONN': #portal_session_connect
             # create a new, unlogged-in session and sync it
             sess = ServerSession()
             sess.sessionhandler = self.factory.server.sessions
             sess.load_sync_data(data)            
             self.factory.server.sessions.portal_connect(sessid, sess)
           
-        elif operation == 'portal_session_disconnect':
+        elif operation == 'PDISCONN': #'portal_session_disconnect'
             # session closed from portal side 
             self.factory.server.sessions.portal_disconnect(sessid)
 
-        elif operation == 'portal_session_sync':
+        elif operation == 'PSYNC': #'portal_session_sync'
             # force a resync of sessions when portal reconnects to server (e.g. after a server reboot)            
             # the data kwarg contains a dict {sessid: {arg1:val1,...}} representing the attributes
             # to sync for each session.
@@ -282,6 +288,9 @@ class AMPProtocol(amp.AMP):
                 sesslist.append(sess)
             # replace sessions on server
             server_sessionhandler.portal_session_sync(sesslist)
+        else:
+            raise Exception("operation %s not recognized." % operation)
+
 
         return {}
     ServerAdmin.responder(amp_server_admin)
@@ -308,24 +317,24 @@ class AMPProtocol(amp.AMP):
         data = pickle.loads(utils.to_str(data))            
 
         #print "portaladmin (portal side):", sessid, operation, data
-        if operation == 'server_session_login':
+        if operation == 'SLOGIN': # 'server_session_login'
             # a session has authenticated; sync it.
             sess = self.factory.portal.sessions.get_session(sessid)            
             sess.load_sync_data(data)
 
-        elif operation == 'server_session_disconnect':
+        elif operation == 'SDISCONN': #'server_session_disconnect'
             # the server is ordering to disconnect the session
             self.factory.portal.sessions.server_disconnect(sessid, reason=data)
 
-        elif operation == 'server_session_disconnect_all':
+        elif operation == 'SDISCONNALL': #'server_session_disconnect_all'
             # server orders all sessions to disconnect
             self.factory.portal.sessions.server_disconnect_all(reason=data)
 
-        elif operation == 'server_shutdown':
+        elif operation == 'SSHUTD': #server_shutdown'
             # the server orders the portal to shut down
             self.factory.portal.shutdown(restart=False)
             
-        elif operation == 'server_session_sync':
+        elif operation == 'SSYNC': #'server_session_sync'
             # server wants to save session data to the portal, maybe because
             # it's about to shut down. We don't overwrite any sessions, 
             # just update data on them and remove eventual ones that are 
@@ -342,6 +351,8 @@ class AMPProtocol(amp.AMP):
             # disconnect missing protocols
             for sessid in to_delete:
                 portal_sessionhandler.server_disconnect(sessid)
+        else:
+            raise Exception("operation %s not recognized." % operation)
         return {}
     PortalAdmin.responder(amp_portal_admin)
 

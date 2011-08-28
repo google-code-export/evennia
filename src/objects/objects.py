@@ -395,9 +395,9 @@ class Character(Object):
         the script is permanently stored to this object (the permanent
         keyword creates a script to do this), we should never need to
         do this again for as long as this object exists.
-        pass
         """        
-        
+        pass        
+
     def at_after_move(self, source_location):
         "Default is to look around after a move."
         self.execute_cmd('look')
@@ -523,7 +523,7 @@ class Exit(Object):
         self.locks.add("traverse:all()") # who can pass through exit by default
         self.locks.add("get:false()")    # noone can pick up the exit
  
-       # an exit should have a destination (this is replaced at creation time)
+        # an exit should have a destination (this is replaced at creation time)
         if self.dbobj.location:
             self.destination = self.dbobj.location  
 
