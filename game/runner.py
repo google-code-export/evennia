@@ -1,10 +1,17 @@
 #!/usr/bin/env python
 """
 
-This runner is controlled by evennia.py and should normally not be launched directly.
- It manages the two main Evennia processes (Server and Portal) and most importanly runs a 
-passive, threaded loop that makes sure to restart Server whenever it shuts down. 
+This runner is controlled by evennia.py and should normally not be
+ launched directly.  It manages the two main Evennia processes (Server
+ and Portal) and most importanly runs a passive, threaded loop that
+ makes sure to restart Server whenever it shuts down.
 
+Since twistd does not allow for returning an optional exit code we
+need to handle the current reload state for server and portal with
+flag-files instead. The files, one each for server and portal either
+contains True or False indicating if the process should be restarted
+upon returning, or not. A process returning != 0 will always stop, no
+matter the value of this file.
 
 """
 import os  
@@ -20,6 +27,9 @@ import Queue, thread, subprocess
 
 SERVER_PIDFILE = "server.pid"
 PORTAL_PIDFILE = "portal.pid"
+
+SERVER_RESTART = "server.restart"
+PORTAL_RESTART = "portal.restart"
 
 # Set the Python path up so we can get to settings.py from here.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -62,8 +72,22 @@ if os.name == 'nt':
         print "Twisted binary for Windows is not ready to use. Please run evennia.py."
         sys.exit()
 
-
 # Functions 
+
+def set_restart_mode(restart_file, flag=True):
+    """
+    This sets a flag file for the restart mode. 
+    """    
+    f = open(restart_file, 'w')
+    f.write(str(flag))
+    f.close()
+
+def get_restart_mode(restart_file):
+    "Obtain rewrite status"
+    if os.path.exists(restart_file):
+        flag = open(restart_file, 'r').read()
+        return flag == "True"
+    return False 
 
 def get_pid(pidfile):
     """
@@ -75,7 +99,6 @@ def get_pid(pidfile):
         f = open(pidfile, 'r')
         pid = f.read()
     return pid 
-
 
 def cycle_logfile(logfile):
     """
@@ -105,8 +128,6 @@ def cycle_logfile(logfile):
 SERVER = None
 PORTAL = None 
 
-PORTAL_INTERACTIVE = False
-
 def start_services(server_argv, portal_argv):
     """
     This calls a threaded loop that launces the Portal and Server
@@ -135,7 +156,7 @@ def start_services(server_argv, portal_argv):
         SERVER = thread.start_new_thread(server_waiter, (processes, ))
 
     if portal_argv: 
-        if PORTAL_INTERACTIVE:
+        if get_restart_mode(PORTAL_RESTART):
             # start portal as interactive, reloadable thread 
             PORTAL = thread.start_new_thread(portal_waiter, (processes, ))
         else:
@@ -150,15 +171,15 @@ def start_services(server_argv, portal_argv):
         
         # this blocks until something is actually returned.
         message, rc = processes.get()                    
-        
+
         # restart only if process stopped cleanly
-        if message == "server_stopped" and int(rc) == 0:
+        if message == "server_stopped" and int(rc) == 0 and get_restart_mode(SERVER_RESTART):
             print "Evennia Server stopped. Restarting ..."
             SERVER = thread.start_new_thread(server_waiter, (processes, ))
             continue 
 
         # normally the portal is not reloaded since it's run as a daemon.
-        if PORTAL_INTERACTIVE and message == "portal_stopped" and int(rc) == 0:
+        if message == "portal_stopped" and int(rc) == 0 and get_restart_mode(PORTAL_RESTART):
             print "Evennia Portal stopped in interactive mode. Restarting ..."
             PORTAL = thread.start_new_thread(portal_waiter, (processes, ))                            
             continue 
@@ -206,24 +227,25 @@ def main():
     
     pid = get_pid(SERVER_PIDFILE)
     if pid and not options.noserver:
-            print "Evennia Server is already running as process %s. Not restarted." % pid
+            print "\nEvennia Server is already running as process %s. Not restarted." % pid
             options.noserver = True
     if options.noserver:
         server_argv = None 
     else:
+        set_restart_mode(SERVER_RESTART, True)
         if options.iserver:
             # don't log to server logfile
             del server_argv[2]
-            print "Starting Evennia Server (output to stdout)."
+            print "\nStarting Evennia Server (output to stdout)."
         else:
-            print "Starting Evennia Server (output to server logfile)."
+            print "\nStarting Evennia Server (output to server logfile)."
         cycle_logfile(SERVER_LOGFILE)
 
     # Portal 
 
     pid = get_pid(PORTAL_PIDFILE)
     if pid and not options.noportal:
-        print "Evennia Portal is already running as process %s. Not restarted." % pid    
+        print "\nEvennia Portal is already running as process %s. Not restarted." % pid    
         options.noportal = True             
     if options.noportal:
         portal_argv = None 
@@ -232,9 +254,11 @@ def main():
             # make portal interactive
             portal_argv[1] = '-n'
             PORTAL_INTERACTIVE = True                     
-            print "Starting Evennia Portal in non-Daemon mode (output to stdout)."
+            set_restart_mode(PORTAL_RESTART, True)
+            print "\nStarting Evennia Portal in non-Daemon mode (output to stdout)."
         else:
-            print "Starting Evennia Portal in Daemon mode (output to portal logfile)."            
+            set_restart_mode(PORTAL_RESTART, False)
+            print "\nStarting Evennia Portal in Daemon mode (output to portal logfile)."            
         cycle_logfile(PORTAL_LOGFILE)
 
     # Start processes

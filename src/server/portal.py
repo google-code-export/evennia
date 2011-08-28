@@ -30,6 +30,8 @@ VERSION = get_evennia_version()
 
 SERVERNAME = settings.SERVERNAME
 
+PORTAL_RESTART = os.path.join(settings.GAME_DIR, 'portal.restart')
+
 TELNET_PORTS = settings.TELNET_PORTS
 SSL_PORTS = settings.SSL_PORTS
 SSH_PORTS = settings.SSH_PORTS
@@ -87,7 +89,7 @@ class Portal(object):
 
         # set a callback if the server is killed abruptly, 
         # by Ctrl-C, reboot etc.
-        reactor.addSystemEventTrigger('before', 'shutdown', self.shutdown, _abrupt=True)
+        #reactor.addSystemEventTrigger('before', 'shutdown', self.shutdown, _abrupt=True)
 
         self.game_running = False
                 
@@ -116,20 +118,32 @@ class Portal(object):
             ifaces = ",".join([" %s" % iface for iface in WEBSERVER_INTERFACES if iface != '0.0.0.0'])
             print "  webserver%s%s: %s" % (clientstring, ifaces, ports)
 
-    def shutdown(self, message="{rThe server has been shutdown. Disconnecting.{n", _abrupt=False):
+    def set_restart_mode(self, mode=None):
         """
-        If called directly, this disconnects everyone cleanly and shuts down the
-        reactor. If the server is killed by other means (Ctrl-C, reboot etc), this
-        might be called as a callback, at which point the reactor is already dead
-        and should not be tried to stop again (_abrupt=True).
-
-        message - message to send to all connected sessions
-        _abrupt - only to be used by internal callback_mechanism.
+        This manages the flag file that tells the runner if the server should
+        be restarted or is shutting down. Valid modes are True/False and None. 
+        If mode is None, no change will be done to the flag file.
         """
-        self.sessions.server_disconnect_all(reason=message)
-        if not _abrupt:
-            reactor.callLater(0, reactor.stop)
+        if not mode:
+            return 
+        f = open(PORTAL_RESTART, 'w')
+        f.write(str(mode))
+        f.close()
 
+    def shutdown(self, restart=None):
+        """
+        Shuts down the server from inside it. 
+
+        restart - True/False sets the flags so the server will be
+                  restarted or not. If None, the current flag setting
+                  (set at initialization or previous runs) is used.
+
+        Note that restarting (regardless of the setting) will not work
+        if the Portal is currently running in daemon mode. In that
+        case it always needs to be restarted manually.
+        """
+        self.set_restart_mode(restart)
+        reactor.callLater(0, reactor.stop)
 
 #------------------------------------------------------------
 #
