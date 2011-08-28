@@ -97,7 +97,7 @@ class ServerSessionHandler(SessionHandler):
         Called by Portal when portal reports a closing of a session
         from the portal side.
         """
-        session = self.session.get(session.sessid, None)
+        session = self.sessions.get(sessid, None)
         if session:
             del self.sessions[session.sessid]
             self.session_count(-1)
@@ -117,6 +117,13 @@ class ServerSessionHandler(SessionHandler):
             self.sessions[sess.sessid] = sess
             sess.at_sync()
 
+    def portal_shutdown(self):
+        """
+        Called by server when shutting down the portal.
+        """        
+        self.server.amp_protocol.call_remote_PortalAdmin(0,
+                                                         operation='server_shutdown',
+                                                         data="")        
     # server-side access methods 
 
     def disconnect(self, session, reason=""):
@@ -124,14 +131,14 @@ class ServerSessionHandler(SessionHandler):
         Called from server side to remove session and inform portal 
         of this fact.
         """
-        session = self.sessions.get(session.ssid, None)
+        session = self.sessions.get(session.sessid, None)
         if session:
             sessid = session.sessid
             del self.sessions[sessid]
             # inform portal that session should be closed.
             self.server.amp_protocol.call_remote_PortalAdmin(sessid,
-                                                             operation='server_disconnect',
-                                                             extra=reason)
+                                                             operation='server_session_disconnect',
+                                                             data=reason)
         self.session_count(-1)
 
         
@@ -176,7 +183,7 @@ class ServerSessionHandler(SessionHandler):
         # tell portal to disconnect all sessions
         self.server.amp_protocol.call_remote_PortalAdmin(0,
                                                          operation='server_session_disconnect_all',
-                                                         extra=reason)
+                                                         data=reason)
 
     def disconnect_duplicate_sessions(self, curr_session):
         """
@@ -284,9 +291,7 @@ class ServerSessionHandler(SessionHandler):
         Data Portal -> Server
         """        
         session = self.sessions.get(sessid, None)                
-        print "server/data_in"
-        print session, sessid, string
-        if session:
+        if session:            
             session.execute_cmd(string)
 
         # ignore 'data' argument for now; this is otherwise the place
@@ -357,7 +362,7 @@ class PortalSessionHandler(SessionHandler):
         """
         for session in self.sessions.values():            
             session.disconnect(reason)
-            del session
+            del session        
 
     def session_from_suid(self, suid):
         """
@@ -375,6 +380,12 @@ class PortalSessionHandler(SessionHandler):
         self.portal.amp_protocol.call_remote_MsgPortal2Server(session.sessid,
                                                               msg=string,
                                                               data=data)
+    def announce_all(self, message):
+        """
+        Send message to all connection sessions
+        """
+        for session in self.sessions.values():
+            session.data_out(message)
 
     def data_out(self, sessid, string="", data=""):
         """

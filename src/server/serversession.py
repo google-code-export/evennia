@@ -106,7 +106,7 @@ class ServerSession(Session):
         self.player = player
         self.user = player.user
         self.uid = self.user.id
-        self.name = self.user.username
+        self.uname = self.user.username
         self.logged_in = True
         self.conn_time = time.time()
         
@@ -161,7 +161,6 @@ class ServerSession(Session):
             uaccount = player.user
             uaccount.last_login = datetime.now()
             uaccount.save()            
-            self.at_disconnect()
             self.logged_in = False                                        
         self.sessionhandler.disconnect(self)
 
@@ -252,7 +251,11 @@ class ServerSession(Session):
             symbol = '#'
         else:
             symbol = '?'
-        return "<%s> %s@%s" % (symbol, self.uname, self.address,)
+        try:
+            address = ":".join([str(part) for part in self.address])            
+        except ValueError:
+            address = self.address            
+        return "<%s> %s@%s" % (symbol, self.uname, address)
 
     def __unicode__(self):
         """

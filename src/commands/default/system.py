@@ -15,7 +15,7 @@ from src.scripts.models import ScriptDB
 from src.objects.models import ObjectDB
 from src.players.models import PlayerDB
 from src.server.models import ServerConfig
-from src.utils import reloads, create, logger, utils, gametime
+from src.utils import create, logger, utils, gametime
 from src.commands.default.muxcommand import MuxCommand
 
 
@@ -37,7 +37,8 @@ class CmdReload(MuxCommand):
         """
         Reload the system. 
         """
-        reloads.start_reload_loop()
+        SESSIONS.announce_all(" Server restarting ...")
+        SESSIONS.server.shutdown(restart=True)
 
 class CmdPy(MuxCommand):
     """
@@ -437,7 +438,8 @@ class CmdShutdown(MuxCommand):
             announcement += "%s\n" % self.args
         logger.log_infomsg('Server shutdown by %s.' % self.caller.name)
         SESSIONS.announce_all(announcement)
-        SESSIONS.server.shutdown()
+        SESSIONS.portal_shutdown()
+        SESSIONS.server.shutdown(restart=False)
 
 class CmdVersion(MuxCommand):
     """

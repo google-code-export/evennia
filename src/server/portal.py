@@ -97,7 +97,9 @@ class Portal(object):
         """
         Outputs server startup info to the terminal.
         """
-        print ' %s (%s) started on port(s):' % (SERVERNAME, VERSION)        
+        print ' %s Portal (%s) started.' % (SERVERNAME, VERSION)        
+        if AMP_ENABLED:
+            print "  amp (Server): %s" % AMP_PORT
         if TELNET_ENABLED:            
             ports = ", ".join([str(port) for port in TELNET_PORTS])
             ifaces = ",".join([" %s" % iface for iface in TELNET_INTERFACES if iface != '0.0.0.0'])
@@ -124,9 +126,10 @@ class Portal(object):
         be restarted or is shutting down. Valid modes are True/False and None. 
         If mode is None, no change will be done to the flag file.
         """
-        if not mode:
+        if mode == None:
             return 
         f = open(PORTAL_RESTART, 'w')
+        print "writing mode=%s to %s" % (mode, PORTAL_RESTART)
         f.write(str(mode))
         f.close()
 
@@ -142,6 +145,7 @@ class Portal(object):
         if the Portal is currently running in daemon mode. In that
         case it always needs to be restarted manually.
         """
+        print "Portal shutdown:", restart
         self.set_restart_mode(restart)
         reactor.callLater(0, reactor.stop)
 

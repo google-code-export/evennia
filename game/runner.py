@@ -83,7 +83,9 @@ def set_restart_mode(restart_file, flag=True):
     f.close()
 
 def get_restart_mode(restart_file):
-    "Obtain rewrite status"
+    """
+    Parse the server/portal restart status
+    """
     if os.path.exists(restart_file):
         flag = open(restart_file, 'r').read()
         return flag == "True"
