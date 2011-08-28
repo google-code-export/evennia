@@ -9,11 +9,10 @@ are stored on the Portal side)
 
 import time 
 from datetime import datetime
-#from django.contrib.auth.models import User
 from django.conf import settings
-#from src.objects.models import ObjectDB
+from src.scripts.models import ScriptDB
 from src.comms.models import Channel
-from src.utils import logger, reloads
+from src.utils import logger
 from src.commands import cmdhandler
 
 IDLE_COMMAND = settings.IDLE_COMMAND 
@@ -140,7 +139,7 @@ class ServerSession(Session):
         self.log('Logged in: %s' % self)
 
         # start (persistent) scripts on this object
-        reloads.reload_scripts(obj=self.player.character)
+        ScriptDB.objects.validate(obj=self.player.character)
         
         #add session to connected list
         self.sessionhandler.login(self)

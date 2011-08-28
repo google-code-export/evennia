@@ -48,7 +48,7 @@ def cleanup():
 
 class FakeSessionHandler(sessionhandler.ServerSessionHandler):
     """
-    Fake sessionhandler, without a 
+    Fake sessionhandler, without an amp connection
     """
     def portal_shutdown(self):
         pass

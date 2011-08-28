@@ -91,6 +91,7 @@ class ServerSessionHandler(SessionHandler):
         Creates a new, unlogged-in game session.
         """
         self.sessions[sessid] = session
+        session.execute_cmd('look')
 
     def portal_disconnect(self, sessid):
         """
@@ -122,7 +123,7 @@ class ServerSessionHandler(SessionHandler):
         Called by server when shutting down the portal.
         """        
         self.server.amp_protocol.call_remote_PortalAdmin(0,
-                                                         operation='server_shutdown',
+                                                         operation='SSHUTD',
                                                          data="")        
     # server-side access methods 
 
@@ -137,7 +138,7 @@ class ServerSessionHandler(SessionHandler):
             del self.sessions[sessid]
             # inform portal that session should be closed.
             self.server.amp_protocol.call_remote_PortalAdmin(sessid,
-                                                             operation='server_session_disconnect',
+                                                             operation='SDISCONN',
                                                              data=reason)
         self.session_count(-1)
 
@@ -158,7 +159,7 @@ class ServerSessionHandler(SessionHandler):
         # sync the portal to this session
         sessdata = session.get_sync_data()
         self.server.amp_protocol.call_remote_PortalAdmin(session.sessid,
-                                                         operation='server_session_login',
+                                                         operation='SLOGIN',
                                                          data=sessdata)
     
     def session_sync(self):
@@ -168,7 +169,7 @@ class ServerSessionHandler(SessionHandler):
         """
         sessdata = self.get_all_sync_data()
         self.server.amp_protocol.call_remote_PortalAdmin(0,
-                                                         'server_session_sync',
+                                                         'SSYNC',
                                                          data=sessdata)
 
 
@@ -182,7 +183,7 @@ class ServerSessionHandler(SessionHandler):
         self.session_count(0)
         # tell portal to disconnect all sessions
         self.server.amp_protocol.call_remote_PortalAdmin(0,
-                                                         operation='server_session_disconnect_all',
+                                                         operation='SDISCONNALL',
                                                          data=reason)
 
     def disconnect_duplicate_sessions(self, curr_session):
@@ -337,7 +338,7 @@ class PortalSessionHandler(SessionHandler):
         self.sessions[sessid] = session
         # sync with server-side 
         self.portal.amp_protocol.call_remote_ServerAdmin(sessid,
-                                                         operation="portal_session_connect",
+                                                         operation="PCONN",
                                                          data=sessdata)
     def disconnect(self, session):
         """
@@ -345,7 +346,7 @@ class PortalSessionHandler(SessionHandler):
         """
         sessid = session.sessid
         self.portal.amp_protocol.call_remote_ServerAdmin(sessid,
-                                                         operation="portal_session_disconnect")
+                                                         operation="PDISCONN")
         
     def server_disconnect(self, sessid, reason=""):
         """
