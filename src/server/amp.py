@@ -13,15 +13,30 @@ Server - (AMP server) Handles all mud operations. The server holds its own list
          and when a session connects/disconnects
 
 """
+import os
+
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
 from twisted.protocols import amp
 from twisted.internet import protocol, defer, reactor
+from django.conf import settings
 from src.utils import utils
 from src.players.models import PlayerDB
 from src.server.serversession import ServerSession
+
+PORTAL_RESTART = os.path.join(settings.GAME_DIR, "portal.restart")
+SERVER_RESTART = os.path.join(settings.GAME_DIR, "server.restart")
+
+def get_restart_mode(restart_file):
+    """
+    Parse the server/portal restart status
+    """
+    if os.path.exists(restart_file):
+        flag = open(restart_file, 'r').read()
+        return flag == "True"
+    return False 
 
 class AmpServerFactory(protocol.ServerFactory):
     """
@@ -40,7 +55,7 @@ class AmpServerFactory(protocol.ServerFactory):
         """
         Start a new connection, and store it on the service object
         """
-        print "Evennia Server connected to Portal at %s." % addr
+        #print "Evennia Server connected to Portal at %s." % addr
         self.server.amp_protocol = AMPProtocol()
         self.server.amp_protocol.factory = self
         return self.server.amp_protocol
@@ -55,9 +70,9 @@ class AmpClientFactory(protocol.ReconnectingClientFactory):
     from Telnet to the MUD server.
     """
     # Initial reconnect delay in seconds.
-    initialDelay = 3
-    factor = 1.5
-    maxDelay = 5
+    initialDelay = 1
+    #factor = 1.5
+    maxDelay = 1
 
     def __init__(self, portal):
         self.portal = portal 
@@ -67,32 +82,33 @@ class AmpClientFactory(protocol.ReconnectingClientFactory):
         """
         Called when starting to try to connect to the MUD server.
         """
-        print 'AMP started to connect:', connector
+        pass
+        #print 'AMP started to connect:', connector
         
     def buildProtocol(self, addr):
         """
         Creates an AMPProtocol instance when connecting to the server. 
         """
-        print "Portal connected to Evennia server at %s." % addr
+        #print "Portal connected to Evennia server at %s." % addr
         self.resetDelay()
         self.portal.amp_protocol = AMPProtocol()
         self.portal.amp_protocol.factory = self
         return self.portal.amp_protocol
 
+    def clientConnectionLost(self, connector, reason):
+        """
+        Called when the AMP connection to the MUD server is lost.
+        """        
+        if not get_restart_mode(SERVER_RESTART):
+            self.portal.sessions.announce_all(" Portal lost connection to Server.")
+        protocol.ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
-    # def clientConnectionLost(self, connector, reason):
-    #     """
-    #     Called when the AMP connection to the MUD server is lost.
-    #     """
-    #     print 'Portal lost connection to Evennia Server. Reason:', reason
-    #     protocol.ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
-
-    # def clientConnectionFailed(self, connector, reason):
-    #     """
-    #     Called when an AMP connection attempt to the MUD server fails.
-    #     """
-    #     print 'Connection failed. Reason:', reason
-    #     #protocol.ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
+    def clientConnectionFailed(self, connector, reason):
+        """
+        Called when an AMP connection attempt to the MUD server fails.
+        """
+        self.portal.sessions.announce_all(" ...")
+        protocol.ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
 
 
 class MsgPortal2Server(amp.Command):
@@ -166,14 +182,14 @@ class AMPProtocol(amp.AMP):
         so we need to make sure to only trigger resync from the
         server side. 
         """
-        print "connectionMade..."
-
         if hasattr(self.factory, "portal"):
             sessdata = self.factory.portal.sessions.get_all_sync_data()
             self.call_remote_ServerAdmin(0, "portal_session_sync", 
                                          data=sessdata)
-
-         
+            if get_restart_mode(SERVER_RESTART):
+                msg = " ... Server restarted."
+                self.factory.portal.sessions.announce_all(msg)
+          
     # Error handling 
 
     def errback(self, e, info):
@@ -190,7 +206,7 @@ class AMPProtocol(amp.AMP):
         """
         Relays message to server. This method is executed on the Server.
         """
-        print "msg portal -> server (server side):", sessid, msg
+        #print "msg portal -> server (server side):", sessid, msg
         self.factory.server.sessions.data_in(sessid, msg, pickle.loads(utils.to_str(data)))
         return {}
     MsgPortal2Server.responder(amp_msg_portal2server)
@@ -199,7 +215,7 @@ class AMPProtocol(amp.AMP):
         """
         Access method called by the Portal and executed on the Portal.
         """        
-        print "msg portal->server (portal side):", sessid, msg
+        #print "msg portal->server (portal side):", sessid, msg
         self.callRemote(MsgPortal2Server,
                         sessid=sessid,
                         msg=msg,
@@ -211,7 +227,7 @@ class AMPProtocol(amp.AMP):
         """
         Relays message to Portal. This method is executed on the Portal.
         """
-        print "msg server->portal (portal side):", sessid, msg
+        #print "msg server->portal (portal side):", sessid, msg
         self.factory.portal.sessions.data_out(sessid, msg, pickle.loads(utils.to_str(data)))
         return {}
     MsgServer2Portal.responder(amp_msg_server2portal)
@@ -220,7 +236,7 @@ class AMPProtocol(amp.AMP):
         """
         Access method called by the Server and executed on the Server.
         """
-        print "msg server->portal (server side):", sessid, msg, data
+        #print "msg server->portal (server side):", sessid, msg, data
         self.callRemote(MsgServer2Portal,
                         sessid=sessid,
                         msg=utils.to_str(msg),
@@ -237,7 +253,7 @@ class AMPProtocol(amp.AMP):
         """
         data = pickle.loads(utils.to_str(data))            
 
-        print "serveradmin (server side):", sessid, operation, data
+        #print "serveradmin (server side):", sessid, operation, data
 
         if operation == 'portal_session_connect':
             # create a new, unlogged-in session and sync it
@@ -274,7 +290,7 @@ class AMPProtocol(amp.AMP):
         """
         Access method called by the Portal and Executed on the Portal.
         """
-        print "serveradmin (portal side):", sessid, operation, data
+        #print "serveradmin (portal side):", sessid, operation, data
         data = utils.to_str(pickle.dumps(data))
 
         self.callRemote(ServerAdmin,
@@ -291,21 +307,24 @@ class AMPProtocol(amp.AMP):
         """
         data = pickle.loads(utils.to_str(data))            
 
-        print "portaladmin (portal side):", sessid, operation, data
-
+        #print "portaladmin (portal side):", sessid, operation, data
         if operation == 'server_session_login':
             # a session has authenticated; sync it.
             sess = self.factory.portal.sessions.get_session(sessid)            
             sess.load_sync_data(data)
 
         elif operation == 'server_session_disconnect':
-            # the server has been ordered to disconnect the session
+            # the server is ordering to disconnect the session
             self.factory.portal.sessions.server_disconnect(sessid, reason=data)
 
         elif operation == 'server_session_disconnect_all':
             # server orders all sessions to disconnect
             self.factory.portal.sessions.server_disconnect_all(reason=data)
 
+        elif operation == 'server_shutdown':
+            # the server orders the portal to shut down
+            self.factory.portal.shutdown(restart=False)
+            
         elif operation == 'server_session_sync':
             # server wants to save session data to the portal, maybe because
             # it's about to shut down. We don't overwrite any sessions, 
@@ -330,7 +349,7 @@ class AMPProtocol(amp.AMP):
         """
         Access method called by the server side.
         """
-        print "portaladmin (server side):", sessid, operation, data
+        #print "portaladmin (server side):", sessid, operation, data
         data = utils.to_str(pickle.dumps(data))
 
         self.callRemote(PortalAdmin,

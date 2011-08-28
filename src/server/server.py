@@ -142,7 +142,8 @@ class Evennia(object):
         """
         Outputs server startup info to the terminal.
         """
-        print ' %s (%s) started (AMP port %s).' % (SERVERNAME, VERSION, AMP_PORT)        
+        print ' %s Server (%s) started.' % (SERVERNAME, VERSION)       
+        print '  amp (Portal): %s' % AMP_PORT
 
     def set_restart_mode(self, mode=None):
         """
@@ -150,7 +151,7 @@ class Evennia(object):
         be restarted or is shutting down. Valid modes are True/False and None. 
         If mode is None, no change will be done to the flag file.
         """
-        if not mode:
+        if mode == None:
             return 
         f = open(SERVER_RESTART, 'w')
         f.write(str(mode))
@@ -200,4 +201,3 @@ if AMP_ENABLED:
 
 # clear server startup mode
 ServerConfig.objects.conf("server_starting_mode", delete=True)
-# 
