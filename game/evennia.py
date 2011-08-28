@@ -14,6 +14,8 @@ import sys, signal
 from optparse import OptionParser
 from subprocess import Popen, call
 
+SIG = signal.SIGINT
+
 HELPENTRY = \
 """
                                                  (version %s) 
@@ -89,9 +91,11 @@ MENU = \
 # System Configuration and setup
 #
 
-
 SERVER_PIDFILE = "server.pid"
 PORTAL_PIDFILE = "portal.pid"
+
+SERVER_RESTART = "server.restart"
+PORTAL_RESTART = "portal.restart"
 
 # Set the Python path up so we can get to settings.py from here.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -223,7 +227,7 @@ if os.name == 'nt':
 
 
 # Functions
-
+    
 def get_pid(pidfile):
     """
     Get the PID (Process ID) by trying to access
@@ -243,7 +247,7 @@ def del_pid(pidfile):
     if os.path.exists(pidfile):
         os.remove(pidfile)
 
-def kill(pidfile, signal=signal.SIGINT, succmsg="", errmsg="", clean=False):
+def kill(pidfile, signal=SIG, succmsg="", errmsg="", restart_file=SERVER_RESTART, restart=True):
     """
     Send a kill signal to a process based on PID. A customized success/error
     message will be returned. If clean=True, the system will attempt to manually
@@ -254,16 +258,18 @@ def kill(pidfile, signal=signal.SIGINT, succmsg="", errmsg="", clean=False):
         if os.name == 'nt' and sys.version < "2.7":
             print "Sorry, Windows requires Python 2.7 or higher for this operation."
             return
+        # set restart/norestart flag
+        f = open(restart_file, 'w')
+        f.write(str(restart))
+        f.close()
         try:
             os.kill(int(pid), signal)
         except OSError:
             print "Process %s could not be signalled. The PID file '%s' seems stale. Try removing it." % (pid, pidfile)
             return
-        print succmsg
-        if clean:
-            del_pid(pidfile)
+        print "Evennia:", succmsg
         return
-    print errmsg
+    print "Evennia:", errmsg
 
 def run_menu():
     """
@@ -305,16 +311,16 @@ def run_menu():
             return cmdstr
         elif inp < 10:
             if inp == 5:
-                kill(SERVER_PIDFILE, signal.SIGINT, "Server restarted.", errmsg % "Server")
+                kill(SERVER_PIDFILE, SIG, "Server restarted.", errmsg % "Server")
             elif inp == 6:
-                kill(PORTAL_PIDFILE, signal.SIGINT, "Portal restarted (or stopped if in daemon mode).", errmsg % "Portal")
+                kill(PORTAL_PIDFILE, SIG, "Portal restarted (or stopped if in daemon mode).", errmsg % "Portal")
             elif inp == 7:
-                kill(PORTAL_PIDFILE, signal.SIGQUIT, "Stopped Server.", errmsg % "Server", clean=True)
-                kill(SERVER_PIDFILE, signal.SIGQUIT, "Stopped Portal.", errmsg % "Portal", clean=True)
+                kill(SERVER_PIDFILE, SIG, "Stopped Portal.", errmsg % "Portal", PORTAL_RESTART, restart=False)
+                kill(PORTAL_PIDFILE, SIG, "Stopped Server.", errmsg % "Server", restart=False)
             elif inp == 8:
-                kill(PORTAL_PIDFILE, signal.SIGQUIT, "Stopped Server.", errmsg % "Server", clean=True)
+                kill(PORTAL_PIDFILE, SIG, "Stopped Server.", errmsg % "Server", restart=False)
             elif inp == 9:
-                kill(SERVER_PIDFILE, signal.SIGQUIT, "Stopped Portal.", errmsg % "Portal", clean=True)
+                kill(SERVER_PIDFILE, SIG, "Stopped Portal.", errmsg % "Portal", PORTAL_RESTART, restart=False)
             return 
         else:
             print "Not a valid option."
@@ -352,25 +358,25 @@ def handle_args(options, mode, service):
     elif mode == 'restart':
         # restarting services
         if service == 'server':
-            kill(SERVER_PIDFILE, signal.SIGINT, "Server restarted.", errmsg % 'Server')
+            kill(SERVER_PIDFILE, SIG, "Server restarted.", errmsg % 'Server')
         elif service == 'portal':
             print "Note: Portal usually don't need to be restarted unless you are debugging in interactive mode."
             print "If Portal was running in default Daemon mode, it cannot be restarted. In that case you have "
             print "to restart it manually with 'evennia.py start portal'"
-            kill(PORTAL_PIDFILE, signal.SIGINT, "Portal restarted (or stopped, if it was in daemon mode).", errmsg % 'Portal')
+            kill(PORTAL_PIDFILE, SIG, "Portal restarted (or stopped, if it was in daemon mode).", errmsg % 'Portal', PORTAL_RESTART)
         else: # all
             # default mode, only restart server
-            kill(SERVER_PIDFILE, signal.SIGINT, "Server restarted.", errmsg % 'Server')
+            kill(SERVER_PIDFILE, SIG, "Server restarted.", errmsg % 'Server')
 
     elif mode == 'stop':
         # stop processes, avoiding reload
         if service == 'server':
-            kill(SERVER_PIDFILE, signal.SIGQUIT, "Server stopped.", errmsg % 'Server', clean=True)
+            kill(SERVER_PIDFILE, SIG, "Server stopped.", errmsg % 'Server', restart=False)
         elif service == 'portal':
-            kill(PORTAL_PIDFILE, signal.SIGQUIT, "Portal stopped.", errmsg % 'Portal', clean=True)
+            kill(PORTAL_PIDFILE, SIG, "Portal stopped.", errmsg % 'Portal', PORTAL_RESTART, restart=False)
         else:
-            kill(SERVER_PIDFILE, signal.SIGQUIT, "Server stopped.", errmsg % 'Server', clean=True)
-            kill(PORTAL_PIDFILE, signal.SIGQUIT, "Portal stopped.", errmsg % 'Portal', clean=True)
+            kill(PORTAL_PIDFILE, SIG, "Portal stopped.", errmsg % 'Portal', PORTAL_RESTART, restart=False)
+            kill(SERVER_PIDFILE, SIG, "Server stopped.", errmsg % 'Server', restart=False)
     return None
 
 def main():
