@@ -2,6 +2,8 @@
 """
 EVENNIA SERVER STARTUP SCRIPT
 
+This is the start point for running Evennia. 
+
 Sets the appropriate environmental variables and launches the server
 and portal through the runner. Run without arguments to get a
 menu. Run the script with the -h flag to see usage information.
@@ -97,16 +99,31 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'game.settings'
 
 if not os.path.exists('settings.py'):
     # make sure we have a settings.py file.
-    print "    No settings.py file found. Launching manage.py ..."
+    print "    No settings.py file found. launching manage.py ..."
 
     import game.manage
 
     print """
-    Now configure Evennia by editing your new settings.py file.
-    If you haven't already, you should also create/configure the
-    database with 'python manage.py syncdb' before continuing.
+    ... A new settings file was created. Edit this file to configure
+    Evennia as desired by copy&pasting options from
+    src/settings_default.py.
 
-    When you are ready, run this program again to start the server."""
+    You should then also create/configure the database using
+
+        python manage.py syncdb
+
+    Make sure to create a new admin user when prompted -- this will be
+    user #1 in-game.  If you use django-south, you'll see mentions of
+    migrating things in the above run. You then also have to run
+
+        python manage.py migrate
+
+    If you use default sqlite3 database, you will find a file
+    evennia.db appearing. This is the database file. Just delete this
+    and repeat the above manage.py steps to start with a fresh
+    database.
+
+    When you are set up, run evennia.py again to start the server."""
     sys.exit()
 
 # Get the settings
@@ -122,6 +139,31 @@ PORTAL_PY_FILE = os.path.join(settings.SRC_DIR, 'server/portal.py')
 # Get logfile names
 SERVER_LOGFILE = settings.SERVER_LOG_FILE
 PORTAL_LOGFILE = settings.PORTAL_LOG_FILE
+
+# Check so a database exists and is accessible
+from django.db import DatabaseError
+from src.objects.models import ObjectDB
+try:
+    test = ObjectDB.objects.get(id=1)
+except ObjectDB.DoesNotExist:
+    pass # this is fine at this point
+except DatabaseError:
+    print """
+    Your database does not seem to be set up correctly.
+
+    Please run:
+      
+         python manage.py syncdb
+
+    (make sure to create an admin user when prompted). If you use
+    pyhon-south you will get mentions of migrating in the above
+    run. You then need to also run
+
+         python manage.py migrate
+
+    When you have a database set up, rerun evennia.py.
+    """
+    sys.exit()
 
 # Add this to the environmental variable for the 'twistd' command.
 currpath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
