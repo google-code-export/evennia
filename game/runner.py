@@ -174,9 +174,16 @@ def start_services(server_argv, portal_argv):
         # this blocks until something is actually returned.
         message, rc = processes.get()                    
 
+        if os.name == 'nt':
+            # for Windows we need to remove pid files manually
+            if message == 'server_stopped' and os.path.exists(SERVER_PIDFILE):
+                os.remove(SERVER_PIDFILE)
+            elif message == 'portal_stopped' and os.path.exists(PORTAL_PIDFILE):
+                os.remove(PORTAL_PIDFILE) 
+
         # restart only if process stopped cleanly
         if message == "server_stopped" and int(rc) == 0 and get_restart_mode(SERVER_RESTART):
-            print "Evennia Server stopped. Restarting ..."
+            print "Evennia Server stopped. Restarting ..."            
             SERVER = thread.start_new_thread(server_waiter, (processes, ))
             continue 
 
@@ -191,7 +198,7 @@ def start_services(server_argv, portal_argv):
 
 def main():
     """
-    This handles 
+    This handles the command line input of the runner (it's most often called by evennia.py)
     """
     
     parser = OptionParser(usage="%prog [options] start",
@@ -217,7 +224,7 @@ def main():
 
     # set up default project calls 
     server_argv = [TWISTED_BINARY, 
-                   '-n',
+                   '--nodaemon',
                    '--logfile=%s' % SERVER_LOGFILE,
                    '--pidfile=%s' % SERVER_PIDFILE, 
                    '--python=%s' % SERVER_PY_FILE]
@@ -254,7 +261,7 @@ def main():
     else:
         if options.iportal:
             # make portal interactive
-            portal_argv[1] = '-n'
+            portal_argv[1] = '--nodaemon'
             PORTAL_INTERACTIVE = True                     
             set_restart_mode(PORTAL_RESTART, True)
             print "\nStarting Evennia Portal in non-Daemon mode (output to stdout)."
@@ -262,6 +269,11 @@ def main():
             set_restart_mode(PORTAL_RESTART, False)
             print "\nStarting Evennia Portal in Daemon mode (output to portal logfile)."            
         cycle_logfile(PORTAL_LOGFILE)
+
+    # Windows fixes (Windows don't support pidfiles natively)
+    if os.name == 'nt':
+        del server_argv[-2]
+        del portal_argv[-2]
 
     # Start processes
     start_services(server_argv, portal_argv)

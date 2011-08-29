@@ -54,6 +54,7 @@ AMP_HOST = settings.AMP_HOST
 AMP_PORT = settings.AMP_PORT
 AMP_ENABLED = AMP_HOST and AMP_PORT 
 
+
 #------------------------------------------------------------
 # Portal Service object 
 #------------------------------------------------------------
@@ -283,3 +284,9 @@ if IMC2_ENABLED:
 
     from src.comms import imc2
     imc2.connect_all()
+
+if os.name == 'nt':
+    # Windows only: Set PID file manually
+    f = open(os.path.join(settings.GAME_DIR, 'portal.pid'), 'w')
+    f.write(os.getpid())
+    f.close()
