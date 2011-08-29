@@ -44,6 +44,7 @@ AMP_ENABLED = True
 AMP_HOST = settings.AMP_HOST
 AMP_PORT = settings.AMP_PORT
 
+
 #------------------------------------------------------------
 # Evennia Main Server object 
 #------------------------------------------------------------
@@ -201,3 +202,9 @@ if AMP_ENABLED:
 
 # clear server startup mode
 ServerConfig.objects.conf("server_starting_mode", delete=True)
+
+if os.name == 'nt':
+    # Windows only: Set PID file manually
+    f = open(os.path.join(settings.GAME_DIR, 'server.pid'), 'w')
+    f.write(os.getpid())
+    f.close()
