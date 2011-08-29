@@ -255,9 +255,11 @@ def kill(pidfile, signal=SIG, succmsg="", errmsg="", restart_file=SERVER_RESTART
     """
     pid = get_pid(pidfile)
     if pid:
-        if os.name == 'nt' and sys.version < "2.7":
-            print "Sorry, Windows requires Python 2.7 or higher for this operation."
-            return
+        if os.name == 'nt':
+            if sys.version < "2.7":
+                print "Sorry, Windows requires Python 2.7 or higher for this operation."
+                return
+            os.remove(pidfile)
         # set restart/norestart flag
         f = open(restart_file, 'w')
         f.write(str(restart))

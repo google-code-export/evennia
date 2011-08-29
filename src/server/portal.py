@@ -152,9 +152,9 @@ class Portal(object):
         if the Portal is currently running in daemon mode. In that
         case it always needs to be restarted manually.
         """
-        print "Portal shutdown:", restart
         self.set_restart_mode(restart)
-        reactor.callLater(0, reactor.stop)
+        if not _abrupt:
+            reactor.callLater(0, reactor.stop)
         if os.name == 'nt' and os.path.exists(PORTAL_PIDFILE):
             # for Windows we need to remove pid files manually            
             os.remove(PORTAL_PIDFILE)
