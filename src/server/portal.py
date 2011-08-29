@@ -288,5 +288,5 @@ if IMC2_ENABLED:
 if os.name == 'nt':
     # Windows only: Set PID file manually
     f = open(os.path.join(settings.GAME_DIR, 'portal.pid'), 'w')
-    f.write(os.getpid())
+    f.write(str(os.getpid()))
     f.close()
