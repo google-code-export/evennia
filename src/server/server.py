@@ -15,6 +15,7 @@ if os.name == 'nt':
     # For Windows batchfile we need an extra path insertion here.
     sys.path.insert(0, os.path.dirname(os.path.dirname(
                 os.path.dirname(os.path.abspath(__file__)))))
+    SERVER_PIDFILE = os.path.join(settings.GAME_DIR, 'server.pid')
 
 from twisted.application import internet, service
 from twisted.internet import protocol, reactor, defer
@@ -95,7 +96,7 @@ class Evennia(object):
 
         # set a callback if the server is killed abruptly, 
         # by Ctrl-C, reboot etc.
-        #reactor.addSystemEventTrigger('before', 'shutdown', self.shutdown, _abrupt=True)
+        reactor.addSystemEventTrigger('before', 'shutdown', self.shutdown, _abrupt=True)
 
         self.game_running = True
                 
@@ -158,18 +159,23 @@ class Evennia(object):
         f.write(str(mode))
         f.close()
 
-    def shutdown(self, restart=None):
+    def shutdown(self, restart=None, _abrupt=False):
         """
         Shuts down the server from inside it. 
 
         restart - True/False sets the flags so the server will be
                   restarted or not. If None, the current flag setting
                   (set at initialization or previous runs) is used.
+        _abrupt - this is set if server is stopped by a kill command,
+                  in which case the reactor is dead anyway. 
         """
         self.set_restart_mode(restart)
-        reactor.callLater(0, reactor.stop)
-
-
+        if not _abrupt:
+            reactor.callLater(0, reactor.stop)
+        if os.name == 'nt' and os.path.exists(SERVER_PIDFILE):
+            # for Windows we need to remove pid files manually            
+            os.remove(SERVER_PIDFILE)
+            
 #------------------------------------------------------------
 #
 # Start the Evennia game server and add all active services

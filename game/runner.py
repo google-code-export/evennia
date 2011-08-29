@@ -174,13 +174,6 @@ def start_services(server_argv, portal_argv):
         # this blocks until something is actually returned.
         message, rc = processes.get()                    
 
-        if os.name == 'nt':
-            # for Windows we need to remove pid files manually
-            if message == 'server_stopped' and os.path.exists(SERVER_PIDFILE):
-                os.remove(SERVER_PIDFILE)
-            elif message == 'portal_stopped' and os.path.exists(PORTAL_PIDFILE):
-                os.remove(PORTAL_PIDFILE) 
-
         # restart only if process stopped cleanly
         if message == "server_stopped" and int(rc) == 0 and get_restart_mode(SERVER_RESTART):
             print "Evennia Server stopped. Restarting ..."            
@@ -272,8 +265,10 @@ def main():
 
     # Windows fixes (Windows don't support pidfiles natively)
     if os.name == 'nt':
-        del server_argv[-2]
-        del portal_argv[-2]
+        if server_argv:
+            del server_argv[-2]
+        if portal_argv:
+            del portal_argv[-2]
 
     # Start processes
     start_services(server_argv, portal_argv)
