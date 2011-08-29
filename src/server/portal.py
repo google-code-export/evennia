@@ -14,7 +14,6 @@ if os.name == 'nt':
     # For Windows batchfile we need an extra path insertion here.
     sys.path.insert(0, os.path.dirname(os.path.dirname(
                 os.path.dirname(os.path.abspath(__file__)))))
-    PORTAL_PIDFILE = os.path.join(settings.GAME_DIR, 'portal.pid')
 
 from twisted.application import internet, service
 from twisted.internet import protocol, reactor
@@ -22,6 +21,10 @@ from twisted.web import server, static
 from django.conf import settings
 from src.utils.utils import get_evennia_version
 from src.server.sessionhandler import PORTAL_SESSIONS
+
+if os.name == 'nt':
+    # For Windows we need to handle pid files manually.
+    PORTAL_PIDFILE = os.path.join(settings.GAME_DIR, 'portal.pid')
 
 #------------------------------------------------------------
 # Evennia Portal settings 
