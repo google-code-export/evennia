@@ -15,7 +15,6 @@ if os.name == 'nt':
     # For Windows batchfile we need an extra path insertion here.
     sys.path.insert(0, os.path.dirname(os.path.dirname(
                 os.path.dirname(os.path.abspath(__file__)))))
-    SERVER_PIDFILE = os.path.join(settings.GAME_DIR, 'server.pid')
 
 from twisted.application import internet, service
 from twisted.internet import protocol, reactor, defer
@@ -31,6 +30,10 @@ from src.server import initial_setup
 from src.utils.utils import get_evennia_version
 from src.comms import channelhandler
 from src.server.sessionhandler import SESSIONS
+
+if os.name == 'nt':
+    # For Windows we need to handle pid files manually.
+    SERVER_PIDFILE = os.path.join(settings.GAME_DIR, 'server.pid')
 
 SERVER_RESTART = os.path.join(settings.GAME_DIR, 'server.restart')
 
