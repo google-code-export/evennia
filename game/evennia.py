@@ -47,6 +47,9 @@ process. When developing your game it is however convenient to
 directly see tracebacks on standard output, so starting with options
 2-4 may be a good bet. As you make changes to your code, reload the
 server (option 5) to make it available to users.
+
+Reload and stop is not well supported in Windows. If you have issues, log
+into the game to stop or restart the server instead. 
 """
 
 MENU = \
@@ -257,7 +260,7 @@ def kill(pidfile, signal=SIG, succmsg="", errmsg="", restart_file=SERVER_RESTART
     if pid:
         if os.name == 'nt':
             if sys.version < "2.7":
-                print "Sorry, Windows requires Python 2.7 or higher for this operation."
+                print "Windows requires Python 2.7 or higher for this operation."
                 return
             os.remove(pidfile)
         # set restart/norestart flag
@@ -313,8 +316,14 @@ def run_menu():
             return cmdstr
         elif inp < 10:
             if inp == 5:
+                if os.name == 'nt':
+                    print "This operation is not supported under Windows. Log into the game to restart/reload the server."    
+                    return 
                 kill(SERVER_PIDFILE, SIG, "Server restarted.", errmsg % "Server")
             elif inp == 6:
+                if os.name == 'nt':
+                    print "This operation is not supported under Windows."
+                    return
                 kill(PORTAL_PIDFILE, SIG, "Portal restarted (or stopped if in daemon mode).", errmsg % "Portal")
             elif inp == 7:
                 kill(SERVER_PIDFILE, SIG, "Stopped Portal.", errmsg % "Portal", PORTAL_RESTART, restart=False)
@@ -359,6 +368,9 @@ def handle_args(options, mode, service):
 
     elif mode == 'restart':
         # restarting services
+        if os.name == 'nt':
+            print "Restarting from command line is not supported under Windows. Log into the game to restart."
+            return 
         if service == 'server':
             kill(SERVER_PIDFILE, SIG, "Server restarted.", errmsg % 'Server')
         elif service == 'portal':
