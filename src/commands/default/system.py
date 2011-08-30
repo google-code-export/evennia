@@ -116,6 +116,58 @@ class CmdPy(MuxCommand):
         except AssertionError: # this is a strange thing; the script looses its id somehow..?
             pass
 
+
+# helper function. Kept outside so it can be imported and run
+# by other commands. 
+
+def format_script_list(scripts):
+    "Takes a list of scripts and formats the output."
+    if not scripts:
+        return "<No scripts>"
+
+    table = [["id"], ["obj"], ["key"], ["intval"], ["next"], ["rept"], ["db"], ["typeclass"], ["desc"]]
+    for script in scripts:
+
+        table[0].append(script.id)
+        if not hasattr(script, 'obj') or not script.obj:
+            table[1].append("<Global>")
+        else:
+            table[1].append(script.obj.key)
+        table[2].append(script.key)
+        if not hasattr(script, 'interval') or script.interval < 0:
+            table[3].append("--")
+        else:
+            table[3].append("%ss" % script.interval)
+        next = script.time_until_next_repeat()
+        if not next:
+            table[4].append("--")
+        else:
+            table[4].append("%ss" % next)
+
+        if not hasattr(script, 'repeats') or not script.repeats:
+            table[5].append("--")
+        else:
+            table[5].append("%s" % script.repeats)
+        if script.persistent:
+            table[6].append("*")
+        else:
+            table[6].append("-")
+        typeclass_path = script.typeclass_path.rsplit('.', 1)
+        table[7].append("%s" % typeclass_path[-1])
+        table[8].append(script.desc)
+
+    ftable = utils.format_table(table)
+    string = ""
+    for irow, row in enumerate(ftable):
+        if irow == 0:
+            srow = "\n" + "".join(row)
+            srow = "{w%s{n" % srow.rstrip()
+        else:
+            srow = "\n" + "{w%s{n" % row[0] + "".join(row[1:])
+        string += srow.rstrip()
+    return string.strip()
+
+
 class CmdScripts(MuxCommand):
     """
     Operate on scripts.
@@ -138,54 +190,7 @@ class CmdScripts(MuxCommand):
     aliases = "@listscripts"
     locks = "cmd:perm(listscripts) or perm(Wizards)"
     help_category = "System"
-
-    def format_script_list(self, scripts):
-        "Takes a list of scripts and formats the output."
-        if not scripts:
-            return "<No scripts>"
-
-        table = [["id"], ["obj"], ["key"], ["intval"], ["next"], ["rept"], ["db"], ["typeclass"], ["desc"]]
-        for script in scripts:
-
-            table[0].append(script.id)
-            if not hasattr(script, 'obj') or not script.obj:
-                table[1].append("<Global>")
-            else:
-                table[1].append(script.obj.key)
-            table[2].append(script.key)
-            if not hasattr(script, 'interval') or script.interval < 0:
-                table[3].append("--")
-            else:
-                table[3].append("%ss" % script.interval)
-            next = script.time_until_next_repeat()
-            if not next:
-                table[4].append("--")
-            else:
-                table[4].append("%ss" % next)
-
-            if not hasattr(script, 'repeats') or not script.repeats:
-                table[5].append("--")
-            else:
-                table[5].append("%s" % script.repeats)
-            if script.persistent:
-                table[6].append("*")
-            else:
-                table[6].append("-")
-            typeclass_path = script.typeclass_path.rsplit('.', 1)
-            table[7].append("%s" % typeclass_path[-1])
-            table[8].append(script.desc)
-
-        ftable = utils.format_table(table)
-        string = ""
-        for irow, row in enumerate(ftable):
-            if irow == 0:
-                srow = "\n" + "".join(row)
-                srow = "{w%s{n" % srow.rstrip()
-            else:
-                srow = "\n" + "{w%s{n" % row[0] + "".join(row[1:])
-            string += srow.rstrip()
-        return string.strip()
-
+    
     def func(self):
         "implement method"
 
@@ -233,7 +238,7 @@ class CmdScripts(MuxCommand):
             else:
                 # multiple matches.
                 string = "Multiple script matches. Please refine your search:\n"
-                string += self.format_script_list(scripts)
+                string += format_script_list(scripts)
         elif self.switches and self.switches[0] in ("validate", "valid", "val"):
             # run validation on all found scripts
             nr_started, nr_stopped = ScriptDB.objects.validate(scripts=scripts)
@@ -241,7 +246,7 @@ class CmdScripts(MuxCommand):
             string += "Started %s and stopped %s scripts." % (nr_started, nr_stopped)
         else:
             # No stopping or validation. We just want to view things.
-            string = self.format_script_list(scripts)
+            string = format_script_list(scripts)
         caller.msg(string)
 
 
