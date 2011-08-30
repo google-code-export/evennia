@@ -357,7 +357,7 @@ class LightSource(TutorialObject):
             try:
                 self.location.scripts.validate()
             except AttributeError,e:
-                pass
+                pass        
         self.delete()
 
 #------------------------------------------------------------

@@ -98,6 +98,8 @@ class Object(TypeClass):
     def at_cache(self):
         """
         Called whenever this object is cached to the idmapper backend. 
+        This is the place to put eventual reloads of non-persistent attributes
+        you saved in the at_server_restart() below. 
         """
         pass 
 

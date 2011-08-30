@@ -195,7 +195,7 @@ class Evennia(object):
             
         else:
             # call shutdown hooks
-            [(o.typeclass(o), o.at_server_restart()) for o in ObjectDB.get_all_cached_instances()]    
+            [(o.typeclass(o), o.at_disconnect(), o.at_server_restart()) for o in ObjectDB.get_all_cached_instances()]    
             [(p.typeclass(p), p.at_server_restart()) for p in PlayerDB.get_all_cached_instances()]
             [(s.typeclass(s), s.at_server_restart()) for s in ScriptDB.get_all_cached_instances()]
 

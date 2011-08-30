@@ -122,6 +122,9 @@ class ServerSession(Session):
         """
         if self.logged_in:            
             player = self.get_player()
+            character = self.get_character()
+            if character:
+                character.at_disconnect()
             uaccount = player.user
             uaccount.last_login = datetime.now()
             uaccount.save()            
