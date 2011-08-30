@@ -88,9 +88,9 @@ class Evennia(object):
         channelhandler.CHANNELHANDLER.update()
         
         # init all global scripts
-
-        ScriptDB.objects.validate(init_mode=True)
-
+        init_mode = ServerConfig.objects.conf("server_last_shutdown_mode", default="shutdown")
+        ScriptDB.objects.validate(init_mode=init_mode)
+                                         
         # Make info output to the terminal.         
         self.terminal_output()
 
@@ -183,16 +183,23 @@ class Evennia(object):
 
         from src.objects.models import ObjectDB
         from src.players.models import PlayerDB
+        from src.server.models import ServerConfig
+
         if restart:
             # call restart hooks
             [(o.typeclass(o), o.at_server_restart()) for o in ObjectDB.get_all_cached_instances()]    
             [(p.typeclass(p), p.at_server_restart()) for p in PlayerDB.get_all_cached_instances()]
             [(s.typeclass(s), s.at_server_restart()) for s in ScriptDB.get_all_cached_instances()]
+
+            ServerConfig.objects.conf("server_last_shutdown_mode", "restart")
+            
         else:
             # call shutdown hooks
             [(o.typeclass(o), o.at_server_restart()) for o in ObjectDB.get_all_cached_instances()]    
             [(p.typeclass(p), p.at_server_restart()) for p in PlayerDB.get_all_cached_instances()]
             [(s.typeclass(s), s.at_server_restart()) for s in ScriptDB.get_all_cached_instances()]
+
+            ServerConfig.objects.conf("server_last_shutdown_mode", "shutdown")
             
         if not _abrupt:
             reactor.callLater(0, reactor.stop)
@@ -232,6 +239,7 @@ if AMP_ENABLED:
 
 # clear server startup mode
 ServerConfig.objects.conf("server_starting_mode", delete=True)
+ServerConfig.objects.conf("server_last_shutdown_mode", delete=True)
 
 if os.name == 'nt':
     # Windows only: Set PID file manually

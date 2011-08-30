@@ -88,10 +88,12 @@ class ScriptManager(TypedObjectManager):
         key = validate only scripts with a particular key
         dbref = validate only the single script with this particular id. 
 
-        init_mode - This is used during server upstart. It causes non-persistent 
-                    scripts to be removed and persistent scripts to be
-                    force-restarted.
-
+        init_mode - This is used during server upstart and can have
+             three values: False (no init mode), "shutdown" or
+             "restart".  The latter two depends on how the server was
+             shut down.  In restart mode, "non-permanent" scripts will
+             survive, in shutdown they will not.
+                    
         This method also makes sure start any scripts it validates,
         this should be harmless, since already-active scripts
         have the property 'is_running' set and will be skipped. 
@@ -100,6 +102,7 @@ class ScriptManager(TypedObjectManager):
         # we store a variable that tracks if we are calling a 
         # validation from within another validation (avoids 
         # loops). 
+
         global VALIDATE_ITERATION        
         if VALIDATE_ITERATION > 0:
             # we are in a nested validation. Exit.
@@ -112,7 +115,7 @@ class ScriptManager(TypedObjectManager):
         nr_started = 0
         nr_stopped = 0        
 
-        if init_mode:
+        if init_mode == 'shutdown':
             # special mode when server starts or object logs in. 
             # This deletes all non-persistent scripts from database            
             nr_stopped += self.remove_non_persistent(obj=obj)
