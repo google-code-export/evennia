@@ -362,8 +362,9 @@ def handle_args(options, mode, service):
                 cmdstr.append('--iportal')
             cmdstr.append('--noserver')
         else: # all
+            # for convenience we don't start logging of portal, only of server with this command.
             if inter:
-                cmdstr.extend(['--iserver', '--iportal'])
+                cmdstr.extend(['--iserver'])
         return cmdstr
 
     elif mode == 'restart':
@@ -399,8 +400,10 @@ def main():
     """
 
     parser = OptionParser(usage="%prog [-i] [menu|start|restart|stop [server|portal|all]]",
-                          description="This is the main Evennia launcher. It manages the parts of Evennia that need to be running, notably the Evennia Server and Portal. Default is to operate on all services. Use --interactive together with start to launch services as 'interactive' (outputting to stdout rather than to their respective log files and avoid starting as daemons). No arguments displays a menu.")
-    parser.add_option('-i', '--interactive', action='store_true', dest='interactive', default=False, help='Start given processes in interactive mode.')
+                          description="""This is the main Evennia launcher. It handles the Portal and Server, the two services making up Evennia. Default is to operate on both services. Use --interactive together with start to launch services as 'interactive'. Note that when launching 'all' services with the --interactive flag, both services will be started, but only Server will actually be started in interactive mode. This is simply because this is the most commonly useful state. To activate interactive mode also for Portal, launch the two services explicitly as two separate calls to this program. You can also use the menu.""")
+
+    parser.add_option('-i', '--interactive', action='store_true', dest='interactive', default=False, help="Start given processes in interactive mode (log to stdout, don't start as a daemon).")
+
     options, args = parser.parse_args()
     inter = options.interactive
 
