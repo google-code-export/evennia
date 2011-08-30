@@ -56,7 +56,7 @@ class SessionHandler(object):
         sessdict = {}
         for sess in self.sessions.values():
             # copy all relevant data from all sessions
-            sessdict[sess.sessid] = sess.get_sync_data()
+            sessdict[sess.sessid] = sess.get_sync_data()            
         return sessdict
 
 #------------------------------------------------------------

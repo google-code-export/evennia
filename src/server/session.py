@@ -34,7 +34,7 @@ class Session(object):
 
     # names of attributes that should be affected by syncing.
     _attrs_to_sync = ['protocol_key', 'address', 'suid', 'sessid', 'uid', 'uname', 
-                      'logged_in', 'cid', 'ndb', 'encoding', 
+                      'logged_in', 'cid', 'encoding', 
                       'conn_time', 'cmd_last', 'cmd_last_visible', 'cmd_total']    
 
     def init_session(self, protocol_key, address, sessionhandler):
@@ -63,8 +63,6 @@ class Session(object):
 
         # database id of character/object connected to this player session (if any)
         self.cid = None 
-        # store of "non-persistent" data stored on this session's char/object.
-        self.ndb = {}
         self.encoding = "utf-8"
         
         # session time statistics 
@@ -92,7 +90,7 @@ class Session(object):
         and loads it into the correct attributes of the session.
         """    
         for attrname, value in sessdata.items():
-            self.__dict__[attrname] = value
+            self.__dict__[attrname] = value        
         
     def at_sync(self):
         """
