@@ -23,7 +23,6 @@ from django.db import connection
 from django.conf import settings
 
 from src.scripts.models import ScriptDB
-
 from src.server.models import ServerConfig
 from src.server import initial_setup
 
@@ -155,12 +154,18 @@ class Evennia(object):
         This manages the flag file that tells the runner if the server should
         be restarted or is shutting down. Valid modes are True/False and None. 
         If mode is None, no change will be done to the flag file.
-        """
+
+        Either way, the active restart setting (Restart=True/False) is 
+        returned so the server knows which more it's in.
+        """        
         if mode == None:
-            return 
+            if os.path.exists(SERVER_RESTART):
+                return 'True' == open(SERVER_RESTART, 'r').read()
+            return False
         f = open(SERVER_RESTART, 'w')
         f.write(str(mode))
         f.close()
+        return mode 
 
     def shutdown(self, restart=None, _abrupt=False):
         """
@@ -172,7 +177,23 @@ class Evennia(object):
         _abrupt - this is set if server is stopped by a kill command,
                   in which case the reactor is dead anyway. 
         """
-        self.set_restart_mode(restart)
+        restart = self.set_restart_mode(restart)
+
+        # call shutdown hooks on all cached objects
+
+        from src.objects.models import ObjectDB
+        from src.players.models import PlayerDB
+        if restart:
+            # call restart hooks
+            [(o.typeclass(o), o.at_server_restart()) for o in ObjectDB.get_all_cached_instances()]    
+            [(p.typeclass(p), p.at_server_restart()) for p in PlayerDB.get_all_cached_instances()]
+            [(s.typeclass(s), s.at_server_restart()) for s in ScriptDB.get_all_cached_instances()]
+        else:
+            # call shutdown hooks
+            [(o.typeclass(o), o.at_server_restart()) for o in ObjectDB.get_all_cached_instances()]    
+            [(p.typeclass(p), p.at_server_restart()) for p in PlayerDB.get_all_cached_instances()]
+            [(s.typeclass(s), s.at_server_restart()) for s in ScriptDB.get_all_cached_instances()]
+            
         if not _abrupt:
             reactor.callLater(0, reactor.stop)
         if os.name == 'nt' and os.path.exists(SERVER_PIDFILE):

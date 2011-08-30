@@ -1102,8 +1102,7 @@ class TypedObject(SharedMemoryModel):
         "Stop accidental deletion."
         raise Exception("Cannot delete the ndb object!")
     ndb = property(ndb_get, ndb_set, ndb_del)
-
-
+        
     # Lock / permission methods
 
     def access(self, accessing_obj, access_type='read', default=False):

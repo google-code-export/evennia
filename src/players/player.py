@@ -112,3 +112,18 @@ class Player(TypeClass):
         itself as a sender in the msg() call. 
         """
         pass 
+
+    def at_server_restart(self):
+        """
+        This hook is called whenever the server is shutting down for restart/reboot. 
+        If you want to, for example, save non-persistent properties across a restart,
+        this is the place to do it. 
+        """
+        pass
+
+    def at_server_shutdown(self):
+        """
+        This hook is called whenever the server is shutting down fully (i.e. not for 
+        a restart). 
+        """
+        pass
