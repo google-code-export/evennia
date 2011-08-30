@@ -40,7 +40,8 @@ class ScriptClass(TypeClass):
         #print "_start_task: self.interval:", self.key, self.interval, self.dbobj.db_interval
         self.ndb.twisted_task = LoopingCall(self._step_task)
         self.ndb.twisted_task.start(self.interval, now=not self.start_delay)
-        self.ndb.time_last_called = int(time())
+        self.ndb.time_last_called = int(time())    
+        
     def _stop_task(self):
         "stop task runner"
         try:
