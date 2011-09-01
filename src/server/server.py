@@ -87,7 +87,7 @@ class Evennia(object):
         # initialize channelhandler
         channelhandler.CHANNELHANDLER.update()
         
-        # init all global scripts
+        # init all global scripts        
         init_mode = ServerConfig.objects.conf("server_last_shutdown_mode", default="shutdown")
         ScriptDB.objects.validate(init_mode=init_mode)
                                          
