@@ -19,6 +19,9 @@ from django.contrib.auth.models import User
 from src.server.models import ServerConfig
 from src.utils import utils 
 
+# i18n
+from django.utils.translation import ugettext as _
+
 ALLOW_MULTISESSION = settings.ALLOW_MULTISESSION
 IDLE_TIMEOUT = settings.IDLE_TIMEOUT
 
@@ -195,7 +198,7 @@ class ServerSessionHandler(SessionHandler):
                             if sess.logged_in 
                             and sess.get_character() == curr_char
                             and sess != curr_session]
-        reason = "Logged in from elsewhere. Disconnecting." 
+        reason = _("Logged in from elsewhere. Disconnecting.") 
         for sessid in doublet_sessions:
             self.disconnect(session, reason)            
             self.session_count(-1)
@@ -211,7 +214,7 @@ class ServerSessionHandler(SessionHandler):
                             if session.logged_in and IDLE_TIMEOUT > 0 
                             and (tcurr - session.cmd_last) > IDLE_TIMEOUT]            
         for session in invalid_sessions:
-            self.disconnect(session, reason="Idle timeout exceeded, disconnecting.")
+            self.disconnect(session, reason=_("Idle timeout exceeded, disconnecting."))
             self.session_count(-1)
                 
     def session_count(self, num=None):

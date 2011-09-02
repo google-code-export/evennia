@@ -29,6 +29,9 @@ from src.server.serversession import ServerSession
 PORTAL_RESTART = os.path.join(settings.GAME_DIR, "portal.restart")
 SERVER_RESTART = os.path.join(settings.GAME_DIR, "server.restart")
 
+# i18n
+from django.utils.translation import ugettext as _
+
 # Signals
 
 
@@ -105,7 +108,7 @@ class AmpClientFactory(protocol.ReconnectingClientFactory):
         Called when the AMP connection to the MUD server is lost.
         """        
         if not get_restart_mode(SERVER_RESTART):
-            self.portal.sessions.announce_all(" Portal lost connection to Server.")
+            self.portal.sessions.announce_all(_(" Portal lost connection to Server."))
         protocol.ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
@@ -193,7 +196,7 @@ class AMPProtocol(amp.AMP):
                                          "PSYNC", 
                                          data=sessdata)
             if get_restart_mode(SERVER_RESTART):
-                msg = " ... Server restarted."
+                msg = _(" ... Server restarted.")
                 self.factory.portal.sessions.announce_all(msg)
           
     # Error handling 
@@ -201,7 +204,7 @@ class AMPProtocol(amp.AMP):
     def errback(self, e, info):
         "error handler, to avoid dropping connections on server tracebacks."
         e.trap(Exception)
-        print "AMP Error for %s: %s" % (info, e.getErrorMessage())
+        print _("AMP Error for %(info)s: %(e)s") % {'info': info, 'e': e.getErrorMessage()}
 
 
     # Message definition + helper methods to call/create each message type
@@ -295,7 +298,7 @@ class AMPProtocol(amp.AMP):
             # replace sessions on server
             server_sessionhandler.portal_session_sync(sesslist)
         else:
-            raise Exception("operation %s not recognized." % operation)
+            raise Exception(_("operation %(op)s not recognized.") % {'op': operation})
 
 
         return {}
@@ -358,7 +361,7 @@ class AMPProtocol(amp.AMP):
             for sessid in to_delete:
                 portal_sessionhandler.server_disconnect(sessid)
         else:
-            raise Exception("operation %s not recognized." % operation)
+            raise Exception(_("operation %(op)s not recognized.") % {'op': operation})
         return {}
     PortalAdmin.responder(amp_portal_admin)
 

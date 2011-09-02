@@ -14,10 +14,17 @@ import sys, signal
 from optparse import OptionParser
 from subprocess import Popen, call
 
+# Set the Python path up so we can get to settings.py from here.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ['DJANGO_SETTINGS_MODULE'] = 'game.settings'
+
+# i18n
+from django.utils.translation import ugettext as _
+
 SIG = signal.SIGINT
 
 HELPENTRY = \
-"""
+_("""
                                                  (version %s) 
 
 This program launches Evennia with various options. You can access all
@@ -50,10 +57,10 @@ server (option 5) to make it available to users.
 
 Reload and stop is not well supported in Windows. If you have issues, log
 into the game to stop or restart the server instead. 
-"""
+""")
 
 MENU = \
-"""
+_("""
 +---------------------------------------------------------------------------+
 |                                                                           |
 |                    Welcome to the Evennia launcher!                       |
@@ -87,7 +94,7 @@ MENU = \
 |  h) Help                                                                  |
 |  q) Quit                                                                  |
 +---------------------------------------------------------------------------+
-"""
+""")
 
 
 #
@@ -100,17 +107,13 @@ PORTAL_PIDFILE = "portal.pid"
 SERVER_RESTART = "server.restart"
 PORTAL_RESTART = "portal.restart"
 
-# Set the Python path up so we can get to settings.py from here.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ['DJANGO_SETTINGS_MODULE'] = 'game.settings'
-
 if not os.path.exists('settings.py'):
     # make sure we have a settings.py file.
-    print "    No settings.py file found. launching manage.py ..."
+    print _("    No settings.py file found. launching manage.py ...")
 
     import game.manage
 
-    print """
+    print _("""
     ... A new settings file was created. Edit this file to configure
     Evennia as desired by copy&pasting options from
     src/settings_default.py.
@@ -130,7 +133,7 @@ if not os.path.exists('settings.py'):
     and repeat the above manage.py steps to start with a fresh
     database.
 
-    When you are set up, run evennia.py again to start the server."""
+    When you are set up, run evennia.py again to start the server.""")
     sys.exit()
 
 # Get the settings
@@ -155,7 +158,7 @@ try:
 except ObjectDB.DoesNotExist:
     pass # this is fine at this point
 except DatabaseError:
-    print """
+    print _("""
     Your database does not seem to be set up correctly.
 
     Please run:
@@ -169,7 +172,7 @@ except DatabaseError:
          python manage.py migrate
 
     When you have a database set up, rerun evennia.py.
-    """
+    """)
     sys.exit()
 
 # Add this to the environmental variable for the 'twistd' command.
@@ -186,13 +189,13 @@ if os.name == 'nt':
         # Test for for win32api
         import win32api
     except ImportError:
-        print """
+        print _("""
     ERROR: Unable to import win32api, which Twisted requires to run.
     You may download it from:
 
     http://sourceforge.net/projects/pywin32
       or
-    http://starship.python.net/crew/mhammond/win32/Downloads.html"""
+    http://starship.python.net/crew/mhammond/win32/Downloads.html""")
         sys.exit()
 
     if not os.path.exists('twistd.bat'):
@@ -210,12 +213,12 @@ if os.name == 'nt':
         bat_file = open('twistd.bat','w')
         bat_file.write("@\"%s\" \"%s\" %%*" % (sys.executable, twistd_path))
         bat_file.close()
-        print """
+        print _("""
     INFO: Since you are running Windows, a file 'twistd.bat' was
     created for you. This is a simple batch file that tries to call
     the twisted executable. Evennia determined this to be:
 
-       %s
+       %{twistd_path}s
 
     If you run into errors at startup you might need to edit
     twistd.bat to point to the actual location of the Twisted
@@ -223,7 +226,7 @@ if os.name == 'nt':
 
     This procedure is only done once. Run evennia.py again when you
     are ready to start the server.
-    """ % twistd_path
+    """) % {'twistd_path': twistd_path}
         sys.exit()
 
     TWISTED_BINARY = 'twistd.bat'
@@ -260,7 +263,7 @@ def kill(pidfile, signal=SIG, succmsg="", errmsg="", restart_file=SERVER_RESTART
     if pid:
         if os.name == 'nt':
             if sys.version < "2.7":
-                print "Windows requires Python 2.7 or higher for this operation."
+                print _("Windows requires Python 2.7 or higher for this operation.")
                 return
             os.remove(pidfile)
         # set restart/norestart flag
@@ -270,7 +273,7 @@ def kill(pidfile, signal=SIG, succmsg="", errmsg="", restart_file=SERVER_RESTART
         try:
             os.kill(int(pid), signal)
         except OSError:
-            print "Process %s could not be signalled. The PID file '%s' seems stale. Try removing it." % (pid, pidfile)
+            print _("Process %(pid)s could not be signalled. The PID file '%(pidfile)s' seems stale. Try removing it.") % {'pid': pid, 'pidfile': pidfile}
             return
         print "Evennia:", succmsg
         return
@@ -287,23 +290,23 @@ def run_menu():
         # menu loop
 
         print MENU
-        inp = raw_input(" option > ")
+        inp = raw_input(_(" option > "))
 
         # quitting and help
         if inp.lower() == 'q':
             sys.exit()
         elif inp.lower() == 'h':
             print HELPENTRY % EVENNIA_VERSION
-            raw_input("press <return> to continue ...")
+            raw_input(_("press <return> to continue ..."))
             continue
 
         # options
         try:
             inp = int(inp)
         except ValueError:
-            print "Not a valid option."
+            print _("Not a valid option.")
             continue
-        errmsg = "The %s does not seem to be running."
+        errmsg = _("The %s does not seem to be running.")
         if inp < 5:
             if inp == 1:
                 pass # default operation
@@ -317,24 +320,24 @@ def run_menu():
         elif inp < 10:
             if inp == 5:
                 if os.name == 'nt':
-                    print "This operation is not supported under Windows. Log into the game to restart/reload the server."    
+                    print _("This operation is not supported under Windows. Log into the game to restart/reload the server.")    
                     return 
-                kill(SERVER_PIDFILE, SIG, "Server restarted.", errmsg % "Server")
+                kill(SERVER_PIDFILE, SIG, _("Server restarted."), errmsg % "Server")
             elif inp == 6:
                 if os.name == 'nt':
-                    print "This operation is not supported under Windows."
+                    print _("This operation is not supported under Windows.")
                     return
-                kill(PORTAL_PIDFILE, SIG, "Portal restarted (or stopped if in daemon mode).", errmsg % "Portal")
+                kill(PORTAL_PIDFILE, SIG, _("Portal restarted (or stopped if in daemon mode)."), errmsg % "Portal")
             elif inp == 7:
-                kill(SERVER_PIDFILE, SIG, "Stopped Portal.", errmsg % "Portal", PORTAL_RESTART, restart=False)
-                kill(PORTAL_PIDFILE, SIG, "Stopped Server.", errmsg % "Server", restart=False)
+                kill(SERVER_PIDFILE, SIG, _("Stopped Portal."), errmsg % "Portal", PORTAL_RESTART, restart=False)
+                kill(PORTAL_PIDFILE, SIG, _("Stopped Server."), errmsg % "Server", restart=False)
             elif inp == 8:
-                kill(PORTAL_PIDFILE, SIG, "Stopped Server.", errmsg % "Server", restart=False)
+                kill(PORTAL_PIDFILE, SIG, _("Stopped Server."), errmsg % "Server", restart=False)
             elif inp == 9:
-                kill(SERVER_PIDFILE, SIG, "Stopped Portal.", errmsg % "Portal", PORTAL_RESTART, restart=False)
+                kill(SERVER_PIDFILE, SIG, _("Stopped Portal."), errmsg % "Portal", PORTAL_RESTART, restart=False)
             return 
         else:
-            print "Not a valid option."
+            print _("Not a valid option.")
     return None
 
 
@@ -349,7 +352,7 @@ def handle_args(options, mode, service):
 
     inter = options.interactive
     cmdstr = ["python", "runner.py"]
-    errmsg = "The %s does not seem to be running."
+    errmsg = _("The %s does not seem to be running.")
 
     if mode == 'start':
         # starting one or many services
@@ -370,28 +373,28 @@ def handle_args(options, mode, service):
     elif mode == 'restart':
         # restarting services
         if os.name == 'nt':
-            print "Restarting from command line is not supported under Windows. Log into the game to restart."
+            print _("Restarting from command line is not supported under Windows. Log into the game to restart.")
             return 
         if service == 'server':
-            kill(SERVER_PIDFILE, SIG, "Server restarted.", errmsg % 'Server')
+            kill(SERVER_PIDFILE, SIG, _("Server restarted."), errmsg % 'Server')
         elif service == 'portal':
-            print "Note: Portal usually don't need to be restarted unless you are debugging in interactive mode."
-            print "If Portal was running in default Daemon mode, it cannot be restarted. In that case you have "
-            print "to restart it manually with 'evennia.py start portal'"
-            kill(PORTAL_PIDFILE, SIG, "Portal restarted (or stopped, if it was in daemon mode).", errmsg % 'Portal', PORTAL_RESTART)
+            print _("Note: Portal usually don't need to be restarted unless you are debugging in interactive mode.")
+            print _("If Portal was running in default Daemon mode, it cannot be restarted. In that case you have ")
+            print _("to restart it manually with 'evennia.py start portal'")
+            kill(PORTAL_PIDFILE, SIG, _("Portal restarted (or stopped, if it was in daemon mode)."), errmsg % 'Portal', PORTAL_RESTART)
         else: # all
             # default mode, only restart server
-            kill(SERVER_PIDFILE, SIG, "Server restarted.", errmsg % 'Server')
+            kill(SERVER_PIDFILE, SIG, _("Server restarted."), errmsg % 'Server')
 
     elif mode == 'stop':
         # stop processes, avoiding reload
         if service == 'server':
-            kill(SERVER_PIDFILE, SIG, "Server stopped.", errmsg % 'Server', restart=False)
+            kill(SERVER_PIDFILE, SIG, _("Server stopped."), errmsg % 'Server', restart=False)
         elif service == 'portal':
-            kill(PORTAL_PIDFILE, SIG, "Portal stopped.", errmsg % 'Portal', PORTAL_RESTART, restart=False)
+            kill(PORTAL_PIDFILE, SIG, _("Portal stopped."), errmsg % 'Portal', PORTAL_RESTART, restart=False)
         else:
-            kill(PORTAL_PIDFILE, SIG, "Portal stopped.", errmsg % 'Portal', PORTAL_RESTART, restart=False)
-            kill(SERVER_PIDFILE, SIG, "Server stopped.", errmsg % 'Server', restart=False)
+            kill(PORTAL_PIDFILE, SIG, _("Portal stopped."), errmsg % 'Portal', PORTAL_RESTART, restart=False)
+            kill(SERVER_PIDFILE, SIG, _("Server stopped."), errmsg % 'Server', restart=False)
     return None
 
 def main():
@@ -400,9 +403,9 @@ def main():
     """
 
     parser = OptionParser(usage="%prog [-i] [menu|start|restart|stop [server|portal|all]]",
-                          description="""This is the main Evennia launcher. It handles the Portal and Server, the two services making up Evennia. Default is to operate on both services. Use --interactive together with start to launch services as 'interactive'. Note that when launching 'all' services with the --interactive flag, both services will be started, but only Server will actually be started in interactive mode. This is simply because this is the most commonly useful state. To activate interactive mode also for Portal, launch the two services explicitly as two separate calls to this program. You can also use the menu.""")
+                          description=_("""This is the main Evennia launcher. It handles the Portal and Server, the two services making up Evennia. Default is to operate on both services. Use --interactive together with start to launch services as 'interactive'. Note that when launching 'all' services with the --interactive flag, both services will be started, but only Server will actually be started in interactive mode. This is simply because this is the most commonly useful state. To activate interactive mode also for Portal, launch the two services explicitly as two separate calls to this program. You can also use the menu."""))
 
-    parser.add_option('-i', '--interactive', action='store_true', dest='interactive', default=False, help="Start given processes in interactive mode (log to stdout, don't start as a daemon).")
+    parser.add_option('-i', '--interactive', action='store_true', dest='interactive', default=False, help=_("Start given processes in interactive mode (log to stdout, don't start as a daemon)."))
 
     options, args = parser.parse_args()
     inter = options.interactive
@@ -417,10 +420,10 @@ def main():
         service = args[1]
 
     if mode not in ['menu', 'start', 'restart', 'stop']:
-        print "mode should be none or one of 'menu', 'start', 'restart' or 'stop'."
+        print _("mode should be none or one of 'menu', 'start', 'restart' or 'stop'.")
         sys.exit()
     if  service not in ['server', 'portal', 'all']:
-        print "service should be none or 'server', 'portal' or 'all'."
+        print _("service should be none or 'server', 'portal' or 'all'.")
         sys.exit()
 
     if mode == 'menu':
