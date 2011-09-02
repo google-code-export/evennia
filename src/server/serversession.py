@@ -19,6 +19,9 @@ IDLE_COMMAND = settings.IDLE_COMMAND
         
 from src.server.session import Session
 
+# i18n
+from django.utils.translation import ugettext as _
+
 
 #------------------------------------------------------------
 # Server Session
@@ -101,7 +104,7 @@ class ServerSession(Session):
         # this is always called first
         player.at_init()
 
-        self.log('Logged in: %s' % self)
+        self.log(_('Logged in: %(self)s') % {'self': self})
 
         # start (persistent) scripts on this object
         ScriptDB.objects.validate(obj=self.player.character)
