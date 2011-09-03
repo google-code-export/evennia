@@ -113,7 +113,7 @@ class Player(TypeClass):
         """
         pass 
 
-    def at_server_restart(self):
+    def at_server_reload(self):
         """
         This hook is called whenever the server is shutting down for restart/reboot. 
         If you want to, for example, save non-persistent properties across a restart,
