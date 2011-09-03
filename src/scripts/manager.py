@@ -89,10 +89,10 @@ class ScriptManager(TypedObjectManager):
         dbref = validate only the single script with this particular id. 
 
         init_mode - This is used during server upstart and can have
-             three values: False (no init mode), "shutdown" or
-             "restart".  The latter two depends on how the server was
-             shut down.  In restart mode, "non-permanent" scripts will
-             survive, in shutdown they will not.
+             three values: 
+                False (no init mode). Called during run.
+                "reset" - server reboot. Kill non-persistent scripts
+                "reload" - server reload. Keep non-persistent scripts.
                     
         This method also makes sure start any scripts it validates,
         this should be harmless, since already-active scripts
@@ -116,7 +116,7 @@ class ScriptManager(TypedObjectManager):
         nr_stopped = 0        
 
         if init_mode:
-            if init_mode == 'shutdown':
+            if init_mode == 'reset':
                 # special mode when server starts or object logs in. 
                 # This deletes all non-persistent scripts from database                            
                 nr_stopped += self.remove_non_persistent(obj=obj)

@@ -91,7 +91,7 @@ class Evennia(object):
         channelhandler.CHANNELHANDLER.update()
         
         # init all global scripts        
-        init_mode = ServerConfig.objects.conf("server_last_shutdown_mode", default="shutdown")
+        init_mode = ServerConfig.objects.conf("server_resart_mode", default="reset")
         ScriptDB.objects.validate(init_mode=init_mode)
                                          
         # Make info output to the terminal.         
@@ -154,33 +154,40 @@ class Evennia(object):
 
     def set_restart_mode(self, mode=None):
         """
-        This manages the flag file that tells the runner if the server should
-        be restarted or is shutting down. Valid modes are True/False and None. 
+        This manages the flag file that tells the runner if the server is
+        reloading, resetting or shutting down. Valid modes are 
+          'reload', 'reset', 'shutdown' and None. 
         If mode is None, no change will be done to the flag file.
 
         Either way, the active restart setting (Restart=True/False) is 
         returned so the server knows which more it's in.
         """        
         if mode == None:
-            if os.path.exists(SERVER_RESTART):
-                return 'True' == open(SERVER_RESTART, 'r').read()
-            return False
-        f = open(SERVER_RESTART, 'w')
-        f.write(str(mode))
-        f.close()
-        return mode 
+            if os.path.exists(SERVER_RESTART) and 'True' == open(SERVER_RESTART, 'r').read():
+                mode = 'reload'                
+            else:
+                mode = 'shutdown'
+        else:
+            restart = mode in ('reload', 'reset')
+            f = open(SERVER_RESTART, 'w')
+            f.write(str(restart))
+            f.close()
+        return mode
 
-    def shutdown(self, restart=None, _abrupt=False):
+    def shutdown(self, mode=None, _abrupt=False):
         """
         Shuts down the server from inside it. 
 
-        restart - True/False sets the flags so the server will be
-                  restarted or not. If None, the current flag setting
-                  (set at initialization or previous runs) is used.
+        mode - sets the server restart mode. 
+               'reload' - server restarts, no "persistent" scripts are stopped, at_reload hooks called.
+               'reset' - server restarts, non-persistent scripts stopped, at_shutdown hooks called.
+               'shutdown' - like reset, but server will not auto-restart.
+               None - keep currently set flag from flag file. 
         _abrupt - this is set if server is stopped by a kill command,
                   in which case the reactor is dead anyway. 
         """
-        restart = self.set_restart_mode(restart)
+        mode = self.set_restart_mode(mode)
+        print "Shutdown with mode ", mode
 
         # call shutdown hooks on all cached objects
 
@@ -188,21 +195,24 @@ class Evennia(object):
         from src.players.models import PlayerDB
         from src.server.models import ServerConfig
 
-        if restart:
+        if mode == 'reload':
             # call restart hooks
-            [(o.typeclass(o), o.at_server_restart()) for o in ObjectDB.get_all_cached_instances()]    
-            [(p.typeclass(p), p.at_server_restart()) for p in PlayerDB.get_all_cached_instances()]
-            [(s.typeclass(s), s.at_server_restart()) for s in ScriptDB.get_all_cached_instances()]
+            [(o.typeclass(o), o.at_server_reload()) for o in ObjectDB.get_all_cached_instances()]    
+            [(p.typeclass(p), p.at_server_reload()) for p in PlayerDB.get_all_cached_instances()]
+            [(s.typeclass(s), s.pause(), s.at_server_reload()) for s in ScriptDB.get_all_cached_instances()]
 
-            ServerConfig.objects.conf("server_last_shutdown_mode", "restart")
-            
+            ServerConfig.objects.conf("server_restart_mode", "reload")
+
         else:
-            # call shutdown hooks
-            [(o.typeclass(o), o.at_disconnect(), o.at_server_restart()) for o in ObjectDB.get_all_cached_instances()]    
-            [(p.typeclass(p), p.at_server_restart()) for p in PlayerDB.get_all_cached_instances()]
-            [(s.typeclass(s), s.at_server_restart()) for s in ScriptDB.get_all_cached_instances()]
-
-            ServerConfig.objects.conf("server_last_shutdown_mode", "shutdown")
+            if mode == 'reset':
+                # don't call disconnect hooks on reset
+                [(o.typeclass(o), o.at_server_shutdown()) for o in ObjectDB.get_all_cached_instances()]    
+            else: # shutdown
+                [(o.typeclass(o), o.at_disconnect(), o.at_server_shutdown()) for o in ObjectDB.get_all_cached_instances()]    
+            [(p.typeclass(p), p.at_server_shutdown()) for p in PlayerDB.get_all_cached_instances()]
+            [(s.typeclass(s), s.at_server_shutdown()) for s in ScriptDB.get_all_cached_instances()]            
+            
+            ServerConfig.objects.conf("server_restart_mode", "reset")
             
         if not _abrupt:
             reactor.callLater(0, reactor.stop)
@@ -242,7 +252,7 @@ if AMP_ENABLED:
 
 # clear server startup mode
 ServerConfig.objects.conf("server_starting_mode", delete=True)
-ServerConfig.objects.conf("server_last_shutdown_mode", delete=True)
+ServerConfig.objects.conf("server_restart_mode", delete=True)
 
 if os.name == 'nt':
     # Windows only: Set PID file manually

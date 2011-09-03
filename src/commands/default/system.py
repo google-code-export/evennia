@@ -26,8 +26,9 @@ class CmdReload(MuxCommand):
     Usage:
       @reload
 
-    This reloads the system modules and
-    re-validates all scripts. 
+    This restarts the server. The Portal is not
+    affected. Non-persistent scripts will survive a @reload (use
+    @reset to purge) and at_reload() hooks will be called.
     """
     key = "@reload"
     locks = "cmd:perm(reload) or perm(Immortals)"
@@ -38,7 +39,61 @@ class CmdReload(MuxCommand):
         Reload the system. 
         """
         SESSIONS.announce_all(" Server restarting ...")
-        SESSIONS.server.shutdown(restart=True)
+        SESSIONS.server.shutdown(mode='reload')
+
+class CmdReset(MuxCommand):
+    """
+    Reset and reboot the system
+
+    Usage:
+      @reset
+
+    A cold reboot. This works like a mixture of @reload and @shutdown,
+    - all shutdown hooks will be called and non-persistent scrips will
+    be purged. But the Portal will not be affected and the server will
+    automatically restart again.
+    """
+    key = "@reset"
+    aliases = ['@reboot']
+    locks = "cmd:perm(reload) or perm(Immortals)"
+    help_category = "System"
+
+    def func(self):
+        """
+        Reload the system. 
+        """
+        SESSIONS.announce_all(" Server restarting ...")
+        SESSIONS.server.shutdown(mode='reset')
+
+
+class CmdShutdown(MuxCommand):
+
+    """
+    @shutdown
+
+    Usage:
+      @shutdown [announcement]
+
+    Gracefully shut down both Server and Portal.
+    """
+    key = "@shutdown"
+    locks = "cmd:perm(shutdown) or perm(Immortals)"
+    help_category = "System"
+
+    def func(self):
+        "Define function"
+        try:
+            session = self.caller.sessions[0]
+        except Exception:
+            return
+        self.caller.msg('Shutting down server ...')
+        announcement = "\nServer is being SHUT DOWN!\n"
+        if self.args:
+            announcement += "%s\n" % self.args
+        logger.log_infomsg('Server shutdown by %s.' % self.caller.name)
+        SESSIONS.announce_all(announcement)
+        SESSIONS.portal_shutdown()
+        SESSIONS.server.shutdown(mode='shutdown')
 
 class CmdPy(MuxCommand):
     """
@@ -416,35 +471,6 @@ class CmdService(MuxCommand):
                 return
             caller.msg("Starting service '%s'." % self.args)
             service.startService()
-
-class CmdShutdown(MuxCommand):
-
-    """
-    @shutdown
-
-    Usage:
-      @shutdown [announcement]
-
-    Shut the game server down gracefully. 
-    """
-    key = "@shutdown"
-    locks = "cmd:perm(shutdown) or perm(Immortals)"
-    help_category = "System"
-
-    def func(self):
-        "Define function"
-        try:
-            session = self.caller.sessions[0]
-        except Exception:
-            return
-        self.caller.msg('Shutting down server ...')
-        announcement = "\nServer is being SHUT DOWN!\n"
-        if self.args:
-            announcement += "%s\n" % self.args
-        logger.log_infomsg('Server shutdown by %s.' % self.caller.name)
-        SESSIONS.announce_all(announcement)
-        SESSIONS.portal_shutdown()
-        SESSIONS.server.shutdown(restart=False)
 
 class CmdVersion(MuxCommand):
     """

@@ -99,11 +99,11 @@ class Object(TypeClass):
         """
         Called whenever this object is cached to the idmapper backend. 
         This is the place to put eventual reloads of non-persistent attributes
-        you saved in the at_server_restart() below. 
+        you saved in the at_server_reload() below. 
         """
         pass 
 
-    def at_server_restart(self):
+    def at_server_reload(self):
         """
         This hook is called whenever the server is shutting down for restart/reboot. 
         If you want to, for example, save non-persistent properties across a restart,

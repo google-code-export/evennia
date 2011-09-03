@@ -35,18 +35,26 @@ class ScriptClass(TypeClass):
         except Exception:
             return False 
 
-    def _start_task(self):
+    def _start_task(self, start_now=True):
         "start task runner"
-        #print "_start_task: self.interval:", self.key, self.interval, self.dbobj.db_interval
+
         self.ndb.twisted_task = LoopingCall(self._step_task)
-        self.ndb.twisted_task.start(self.interval, now=not self.start_delay)
+        if self.ndb._paused_time:
+            # we had paused the script, restarting
+            #print " start with paused time:", self.key, self.ndb._paused_time
+            self.ndb.twisted_task.start(self.ndb._paused_time, now=False)
+        else:
+            # starting script anew. 
+            #print "_start_task: self.interval:", self.key, self.dbobj.interval
+            self.ndb.twisted_task.start(self.dbobj.interval, now=start_now and not self.start_delay)
         self.ndb.time_last_called = int(time())    
         
     def _stop_task(self):
         "stop task runner"
         try:
             #print "stopping twisted task:", id(self.ndb.twisted_task), self.obj
-            self.ndb.twisted_task.stop()            
+            if self.ndb.twisted_task and not self.ndb.twisted_task.running:
+                self.ndb.twisted_task.stop()            
         except Exception:
             logger.log_trace()
     def _step_err_callback(self, e):
@@ -74,6 +82,16 @@ class ScriptClass(TypeClass):
             self.dbobj.db_repeats -= 1
         self.ndb.time_last_called = int(time())
         self.save()
+
+        if self.ndb._paused_time:
+            # this means we were running an unpaused script, for the time remaining
+            # after the pause. Now we start a normal-running timer again. 
+            #print "switching to normal run:", self.key
+            del self.ndb._paused_time
+            self._stop_task()
+            self._start_task(start_now=False)
+
+
     def _step_task(self):
         "step task"
         try:            
@@ -93,7 +111,10 @@ class ScriptClass(TypeClass):
         check in on their scripts and when they will next be run. 
         """
         try:
-            return max(0, (self.ndb.time_last_called + self.dbobj.db_interval) - int(time()))
+            if self.ndb._paused_time:
+                return max(0, (self.ndb.time_last_called + self.ndb._paused_time) - int(time()))
+            else:
+                return max(0, (self.ndb.time_last_called + self.dbobj.db_interval) - int(time()))
         except Exception:
             return None 
 
@@ -123,7 +144,12 @@ class ScriptClass(TypeClass):
                 # this means the object is not initialized.
                 self.dbobj.is_active = False
                 return 0 
-        # try to start the script 
+
+        # try to restart a paused script 
+        if self.unpause():
+            return 1
+
+        # try to start the script from scratch 
         try:            
             self.dbobj.is_active = True
             self.at_start()
@@ -163,6 +189,37 @@ class ScriptClass(TypeClass):
             return 0
         return 1
 
+    def pause(self):
+        """
+        This stops a running script and stores its active state.
+        """
+        #print "pausing", self.key, self.time_until_next_repeat()
+        dt = self.time_until_next_repeat()
+        if dt == None:
+            return 
+        self.db._paused_time = dt 
+        self._stop_task()
+    
+    def unpause(self):
+        """
+        Restart a paused script. This WILL call at_start(). 
+        """
+        #print "unpausing", self.key, self.db._paused_time
+        dt = self.db._paused_time 
+        if dt == None:
+            return False
+        try:
+            self.dbobj.is_active = True
+            self.at_start()
+            self.ndb._paused_time = dt 
+            self._start_task(start_now=False)
+            del self.db._paused_time
+        except Exception, e:
+            logger.log_trace()
+            self.dbobj.is_active = False
+            return False
+        return True 
+
     # hooks
     def at_script_creation(self):
         "placeholder"
@@ -179,6 +236,7 @@ class ScriptClass(TypeClass):
     def at_repeat(self):
         "placeholder"
         pass
+    
 
 #
 # Base Script - inherit from this
@@ -212,7 +270,8 @@ class Script(ScriptClass):
     def at_start(self):
         """
         Called whenever the script is started, which for persistent
-        scripts is at least once every server start. 
+        scripts is at least once every server start. It will also be called 
+        when starting again after a pause (such as after a server reload)
         """
         pass
 
@@ -230,7 +289,7 @@ class Script(ScriptClass):
         """
         pass
 
-    def at_server_restart(self):
+    def at_server_reload(self):
         """
         This hook is called whenever the server is shutting down for restart/reboot. 
         If you want to, for example, save non-persistent properties across a restart,

@@ -66,12 +66,13 @@ def create_objects():
     # Limbo is the initial starting room.
 
     room_typeclass = settings.BASE_ROOM_TYPECLASS
-    limbo_obj = create.create_object(room_typeclass, 'Limbo')
+    limbo_obj = create.create_object(room_typeclass, _('Limbo'))
     limbo_obj.id = 2
-    string = _("Welcome to your new %%chEvennia%%cn-based game.")
-    string += _(" From here you are ready to begin development.")
-    string += _(" If you should need help or would like to participate")
-    string += _(" in community discussions, visit http://evennia.com.")
+    string = " Welcome to your new {wEvennia{n-based game."
+    string += " From here you are ready to begin development."
+    string += " If you should need help or would like to participate"
+    string += " in community discussions, visit http://evennia.com."
+    string = _(string)
     limbo_obj.db.desc = string
     limbo_obj.save()
 

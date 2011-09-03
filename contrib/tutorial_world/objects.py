@@ -343,7 +343,7 @@ class LightSource(TutorialObject):
         Can be called by tutorial world runner, or by the script when the lightsource 
         has burned out.
         """
-        #import pdb;pdb.set_trace()
+        print "burntime:", self.db.burntime
         if self.db.burntime <= 0:
             # light burned out. Since the lightsources's "location" should be 
             # a character, notify them this way.
@@ -351,6 +351,7 @@ class LightSource(TutorialObject):
                 loc = self.location.location
             except AttributeError:
                 loc = self.location
+            print "location:", loc
             loc.msg_contents("{c%s{n {Rburns out.{n" % self.key)
         self.db.is_active = False 
         try:
