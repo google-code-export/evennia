@@ -23,6 +23,8 @@ from twisted.protocols import amp
 from twisted.internet import protocol, defer, reactor
 from django.conf import settings
 from src.utils import utils
+from src.server.models import ServerConfig
+from src.scripts.models import ScriptDB
 from src.players.models import PlayerDB
 from src.server.serversession import ServerSession
 
@@ -198,6 +200,7 @@ class AMPProtocol(amp.AMP):
             if get_restart_mode(SERVER_RESTART):
                 msg = _(" ... Server restarted.")
                 self.factory.portal.sessions.announce_all(msg)
+
           
     # Error handling 
 
@@ -296,7 +299,13 @@ class AMPProtocol(amp.AMP):
                 sess.at_sync()
                 sesslist.append(sess)
             # replace sessions on server
-            server_sessionhandler.portal_session_sync(sesslist)
+            server_sessionhandler.portal_session_sync(sesslist)            
+
+            # after sync is complete we force-validate all scripts (this starts everthing)
+            init_mode = ServerConfig.objects.conf("server_restart_mode", default=None)
+            ScriptDB.objects.validate(init_mode=init_mode)
+            ServerConfig.objects.conf("server_restart_mode", delete=True)
+
         else:
             raise Exception(_("operation %(op)s not recognized.") % {'op': operation})
 

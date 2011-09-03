@@ -141,8 +141,8 @@ class ScriptManager(TypedObjectManager):
 
         #print "scripts to validate: [%s]" % (", ".join(script.key for script in scripts))        
         for script in scripts:
-            if script.is_valid():
-                #print "validating %s (%i) (init_mode=%s)" % (script.key, id(script.dbobj), init_mode)                                
+            #print "validating %s (%i) (init_mode=%s)" % (script.key, id(script.dbobj), init_mode)                                
+            if script.is_valid():                
                 nr_started += script.start(force_restart=init_mode) 
                 #print "back from start. nr_started=", nr_started
             else:

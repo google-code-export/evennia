@@ -89,10 +89,6 @@ class Evennia(object):
 
         # initialize channelhandler
         channelhandler.CHANNELHANDLER.update()
-        
-        # init all global scripts        
-        init_mode = ServerConfig.objects.conf("server_resart_mode", default="reset")
-        ScriptDB.objects.validate(init_mode=init_mode)
                                          
         # Make info output to the terminal.         
         self.terminal_output()
@@ -186,8 +182,7 @@ class Evennia(object):
         _abrupt - this is set if server is stopped by a kill command,
                   in which case the reactor is dead anyway. 
         """
-        mode = self.set_restart_mode(mode)
-        print "Shutdown with mode ", mode
+        mode = self.set_restart_mode(mode) 
 
         # call shutdown hooks on all cached objects
 
@@ -252,7 +247,6 @@ if AMP_ENABLED:
 
 # clear server startup mode
 ServerConfig.objects.conf("server_starting_mode", delete=True)
-ServerConfig.objects.conf("server_restart_mode", delete=True)
 
 if os.name == 'nt':
     # Windows only: Set PID file manually
