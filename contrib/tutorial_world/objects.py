@@ -231,14 +231,15 @@ class StateLightSourceOn(Script):
         self.start_delay = True # only fire after self.interval s.
         self.repeats = 1 # only run once. 
         self.persistent = True  # survive a server reboot.
+
     def at_start(self):
         "Called at script start - this can also happen if server is restarted."
         self.interval = self.obj.db.burntime
         self.db.script_started = time.time()
 
     def at_repeat(self):
-        # this is only called when torch has burnt out
-        self.db.burntime = -1
+        # this is only called when torch has burnt out        
+        self.obj.db.burntime = -1
         self.obj.reset()
 
     def at_stop(self):
@@ -342,8 +343,7 @@ class LightSource(TutorialObject):
         """
         Can be called by tutorial world runner, or by the script when the lightsource 
         has burned out.
-        """
-        print "burntime:", self.db.burntime
+        """        
         if self.db.burntime <= 0:
             # light burned out. Since the lightsources's "location" should be 
             # a character, notify them this way.
@@ -351,7 +351,6 @@ class LightSource(TutorialObject):
                 loc = self.location.location
             except AttributeError:
                 loc = self.location
-            print "location:", loc
             loc.msg_contents("{c%s{n {Rburns out.{n" % self.key)
         self.db.is_active = False 
         try:
