@@ -396,10 +396,10 @@ class CmdCreate(ObjManipCommand):
                 continue
             if aliases: 
                 string = "You create a new %s: %s (aliases: %s)."
-                string = string % (obj.typeclass, obj.name, ", ".join(aliases))
+                string = string % (obj.typeclass.typename, obj.name, ", ".join(aliases))
             else:
                 string = "You create a new %s: %s."
-                string = string % (obj.typeclass, obj.name)
+                string = string % (obj.typeclass.typename, obj.name)
             # set a default desc
             if not obj.db.desc:
                 obj.db.desc = "You see nothing special."
@@ -1260,7 +1260,7 @@ class CmdTypeclass(MuxCommand):
             # we did not supply a new typeclass, view the 
             # current one instead.
             if hasattr(obj, "typeclass"):                
-                string = "%s's current typeclass is '%s'." % (obj.name, obj.typeclass)
+                string = "%s's current typeclass is '%s'." % (obj.name, obj.typeclass.typename)
             else:
                 string = "%s is not a typed object." % obj.name
             caller.msg(string)
@@ -1276,23 +1276,28 @@ class CmdTypeclass(MuxCommand):
         if not hasattr(obj, 'swap_typeclass') or not hasattr(obj, 'typeclass'):
             caller.msg("This object cannot have a type at all!")
             return 
-
-        reset = "reset" in self.switches
         
-        old_typeclass = obj.typeclass_path
-        if old_typeclass == typeclass and not 'force' in self.switches:
+        old_path = obj.typeclass_path
+        if obj.is_typeclass(typeclass) and not 'force' in self.switches:
             string = "%s already has the typeclass '%s'." % (obj.name, typeclass)
         else:
-            obj.swap_typeclass(typeclass, clean_attributes=reset)        
-            new_typeclass = obj.typeclass
-            string = "%s's type is now %s (instead of %s).\n" % (obj.name, 
-                                                                   new_typeclass, 
-                                                                   old_typeclass)            
-            if reset:
-                string += "All attributes where reset."                                                               
-            else:    
-                string += "Note that the new class type could have overwritten "
-                string += "same-named attributes on the existing object."            
+            reset = "reset" in self.switches
+            old_typeclass_name = obj.typeclass.typename
+            ok = obj.swap_typeclass(typeclass, clean_attributes=reset)
+            if ok:
+                string = "%s's type is now %s (instead of %s).\n" % (obj.name, 
+                                                                     obj.typeclass.typename,
+                                                                     old_typeclass_name)
+                if reset:
+                    string += "All attributes where reset."                                                               
+                else:    
+                    string += "Note that the new class type could have overwritten "
+                    string += "same-named attributes on the existing object."            
+            else:
+                string = "Could not swap '%s' (%s) to typeclass '%s'." % (obj.name,
+                                                                                  old_typeclass_name,
+                                                                                  typeclass)
+                
         caller.msg(string)
 
 
@@ -1555,7 +1560,7 @@ class CmdExamine(ObjManipCommand):
             elif not perms:
                 perms = ["<None>"]                
             string += headers["playerperms"] % (", ".join(perms))         
-        string += headers["typeclass"] % (obj.typeclass, obj.typeclass_path)
+        string += headers["typeclass"] % (obj.typeclass.typename, obj.typeclass_path)
 
         if hasattr(obj, "location"):
             string += headers["location"] % obj.location
@@ -1659,7 +1664,7 @@ class CmdFind(MuxCommand):
     find objects
 
     Usage:
-      @find[/switches] <name or dbref or *player> [= dbrefmin[ dbrefmax]]
+      @find[/switches] <name or dbref or *player> [= dbrefmin[-dbrefmax]]
 
     Switches:
       room - only look for rooms (location=None)
@@ -1668,7 +1673,7 @@ class CmdFind(MuxCommand):
 
     Searches the database for an object of a particular name or dbref.
     Use *playername to search for a player. The switches allows for
-    limiting matches to certain game entities. Dbrefmin and dbrefmax 
+    limiting object matches to certain game entities. Dbrefmin and dbrefmax 
     limits matches to within the given dbrefs, or above/below if only one is given. 
     """ 
 
@@ -1683,7 +1688,7 @@ class CmdFind(MuxCommand):
         switches = self.switches
 
         if not self.args:
-            caller.msg("Usage: @find <string> [= low [high]]")
+            caller.msg("Usage: @find <string> [= low [-high]]")
             return        
 
         searchstring = self.lhs
@@ -1714,7 +1719,7 @@ class CmdFind(MuxCommand):
             if not low <= int(result.id) <= high:
                 string += "\n   {RNo match found for '%s' within the given dbref limits.{n" % searchstring
             else:
-                string += "\n{g   %s(%s) - %s{n" % (result.key, result.dbref, result.typeclass)                            
+                string += "\n{g   %s(%s) - %s{n" % (result.key, result.dbref, result.typeclass.path)                            
         else:
             # Not a player/dbref search but a wider search; build a queryset. 
         
@@ -1744,14 +1749,14 @@ class CmdFind(MuxCommand):
                 restrictions = ", %s" % (",".join(self.switches))                
             if nresults:
                 # convert result to typeclasses. 
-                results = [result.typeclass(result) for result in results]                 
+                results = [result.typeclass for result in results]                 
                 if nresults > 1:                    
                     string = "{w%i Matches{n(#%i-#%i%s):" % (nresults, low, high, restrictions)
                     for res in results:
-                        string += "\n   {g%s(%s) - %s{n" % (res.key, res.dbref, res.typeclass)
+                        string += "\n   {g%s(%s) - %s{n" % (res.key, res.dbref, res.path)
                 else:
                     string = "{wOne Match{n(#%i-#%i%s):" % (low, high, restrictions)                    
-                    string += "\n   {g%s(%s) - %s{n" % (results[0].key, results[0].dbref, results[0].typeclass)            
+                    string += "\n   {g%s(%s) - %s{n" % (results[0].key, results[0].dbref, results[0].path)            
             else:
                 string = "{wMatch{n(#%i-#%i%s):" % (low, high, restrictions)                    
                 string += "\n   {RNo matches found for '%s'{n" % searchstring
@@ -1827,16 +1832,15 @@ class CmdScript(MuxCommand):
       @script[/switch] <obj> [= <script.path or scriptkey>]
     
     Switches:
-      start - start a previously added script
-      stop - stop a previously added script
+      start - start all non-running scripts on object, or a given script only
+      stop - stop all scripts on objects, or a given script only
 
-    Attaches the given script to the object and starts it. Script path
-    can be given from the base location for scripts as given in
-    settings.  If stopping/starting an already existing script, the
-    script's key can be given instead (if giving a path, *all* scripts
-    with this path on <obj> will be affected). If no script name is given,
-    all scripts on the object is affected (or displayed if no start/stop
-    switch is set).
+    If no script path/key is given, lists all scripts active on the given
+    object. 
+    Script path can be given from the base location for scripts as given in
+    settings. If adding a new script, it will be started automatically (no /start
+    switch is needed). Using the /start or /stop switches on an object without 
+    specifying a script key/path will start/stop ALL scripts on the object. 
     """
     
     key = "@script"
@@ -1870,10 +1874,10 @@ class CmdScript(MuxCommand):
                 string += format_script_list(scripts)
             elif "start" in self.switches:                
                 num = sum([obj.scripts.start(script.key) for script in scripts])
-                string += "%s scripts started on %s." % num
+                string += "%s scripts started on %s." % (num, obj.key)
             elif "stop" in self.switches:               
                 for script in scripts:
-                    string += "Stopping script %s." % script.key
+                    string += "Stopping script %s on %s." % (script.key, obj.key)
                     script.stop()
                 string = string.strip()
             obj.scripts.validate()
@@ -1882,9 +1886,9 @@ class CmdScript(MuxCommand):
                 # adding a new script, and starting it
                 ok = obj.scripts.add(self.rhs, autostart=True)
                 if not ok:
-                    string += "\nScript %s could not be added and/or started." % self.rhs
+                    string += "\nScript %s could not be added and/or started on %s." % (self.rhs, obj.key)
                 else:
-                    string = "Script successfully added and started."
+                    string = "Script {w%s{n successfully added and started on %s." % (self.rhs, obj.key)
 
             else:
                 paths = [self.rhs] + ["%s.%s" % (prefix, self.rhs) 

@@ -54,16 +54,21 @@ def create_objects():
     # is inherited from the user so we don't specify it again here. 
 
     god_character = create.create_player(god_user.username, None, None, 
+                                         user=god_user,   
                                          create_character=True,
-                                         typeclass=character_typeclass,
-                                         user=god_user)    
+                                         character_typeclass=character_typeclass)
+
+    if not god_character:
+        print _("#1 could not be created. Check the Player/Character typeclass for bugs.")
+        raise Exception 
+
     god_character.id = 1
     god_character.db.desc = _('This is User #1.')
     god_character.locks.add("examine:perm(Immortals);edit:false();delete:false();boot:false();msg:all();puppet:false()")
 
     god_character.save()
    
-    # Limbo is the initial starting room.
+    # Limbo is the default "nowhere" starting room
 
     room_typeclass = settings.BASE_ROOM_TYPECLASS
     limbo_obj = create.create_object(room_typeclass, _('Limbo'))
@@ -76,9 +81,12 @@ def create_objects():
     limbo_obj.db.desc = string
     limbo_obj.save()
 
-    # Now that Limbo exists, set the user up in Limbo.
-    god_character.location = limbo_obj
-    god_character.home = limbo_obj
+    # Now that Limbo exists, try to set the user up in Limbo (unless
+    # the creation hooks already fixed this).
+    if not god_character.location:        
+        god_character.location = limbo_obj
+    if not god_character.home:
+        god_character.home = limbo_obj
     
 def create_channels():
     """
@@ -170,6 +178,21 @@ def create_admin_media_links():
         print _(" Admin-media symlinked to ADMIN_MEDIA_ROOT.")
     else:
         print _(" Admin-media files should be copied manually to ADMIN_MEDIA_ROOT.")
+
+def at_initial_setup():
+    """
+    Custom hook for users to overload some or all parts of the initial
+    setup. Called very last in the sequence. It tries to import and
+    run a module settings.AT_INITIAL_SETUP_HOOK_MODULE and will fail
+    silently if this does not exist or fails to load.
+    """
+    try:
+        mod = __import__(settings.AT_INITIAL_SETUP_HOOK_MODULE, fromlist=[None])
+    except ImportError:
+        return 
+    print _(" Running at_initial_setup() hook.")
+    if mod.__dict__.get("at_initial_setup", None):
+        mod.at_initial_setup()                   
         
 def handle_setup(last_step):
     """
@@ -194,12 +217,13 @@ def handle_setup(last_step):
         create_system_scripts,
         start_game_time,
         create_admin_media_links,
-        import_MUX_help_files]
+        import_MUX_help_files,
+        at_initial_setup]
 
     if not settings.IMPORT_MUX_HELP:
         # skip importing of the MUX helpfiles, they are 
         # not interesting except for developers.
-        del setup_queue[-1]
+        del setup_queue[-2]
 
     #print " Initial setup: %s steps." % (len(setup_queue)) 
 

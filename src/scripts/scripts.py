@@ -236,6 +236,9 @@ class ScriptClass(TypeClass):
     def at_repeat(self):
         "placeholder"
         pass
+    def at_init(self):
+        "called when typeclass re-caches. Usually not used for scripts."
+        pass
     
 
 #

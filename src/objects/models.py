@@ -33,7 +33,6 @@ from src.utils.utils import is_iter, to_unicode, to_str, mod_import
 
 #PlayerDB = ContentType.objects.get(app_label="players", model="playerdb").model_class()
 
-FULL_PERSISTENCE = settings.FULL_PERSISTENCE 
 AT_SEARCH_RESULT = mod_import(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 
 #------------------------------------------------------------
@@ -64,8 +63,8 @@ class Alias(SharedMemoryModel):
     is so as to allow for effective global searches also by
     alias. 
     """    
-    db_key = models.CharField(max_length=255)
-    db_obj = models.ForeignKey("ObjectDB")
+    db_key = models.CharField('alias', max_length=255)
+    db_obj = models.ForeignKey("ObjectDB", verbose_name='object')
     
     class Meta:
         "Define Django meta options"
@@ -93,12 +92,12 @@ class ObjectNick(TypeNick):
     obj - match against object searches 
     channel - used to store own names for channels
     """
-    db_obj = models.ForeignKey("ObjectDB")
+    db_obj = models.ForeignKey("ObjectDB", verbose_name='object')
 
     class Meta:
         "Define Django meta options"
         verbose_name = "Nickname for Objects"
-        verbose_name_plural = "Nicknames Objects"
+        verbose_name_plural = "Nicknames for Objects"
         unique_together = ("db_nick", "db_type", "db_obj")
 
 class ObjectNickHandler(TypeNickHandler):
@@ -164,20 +163,23 @@ class ObjectDB(TypedObject):
     # but withtout the db_* prefix.
 
     # If this is a character object, the player is connected here.
-    db_player = models.ForeignKey("players.PlayerDB", blank=True, null=True)    
+    db_player = models.ForeignKey("players.PlayerDB", blank=True, null=True, verbose_name='player', 
+                                  help_text='a Player connected to this object, if any.')    
     # The location in the game world. Since this one is likely
     # to change often, we set this with the 'location' property
     # to transparently handle Typeclassing. 
     db_location = models.ForeignKey('self', related_name="locations_set",
-                                     blank=True, null=True)
+                                     blank=True, null=True, verbose_name='game location')
     # a safety location, this usually don't change much.
     db_home = models.ForeignKey('self', related_name="homes_set",
-                                 blank=True, null=True)
+                                 blank=True, null=True, verbose_name='home location')
     # destination of this object - primarily used by exits.
     db_destination = models.ForeignKey('self', related_name="destinations_set", 
-                                       blank=True, null=True)
+                                       blank=True, null=True, verbose_name='destination',
+                                       help_text='a destination, used only by exit objects.')
     # database storage of persistant cmdsets.
-    db_cmdset_storage = models.CharField(max_length=255, null=True)
+    db_cmdset_storage = models.CharField('cmdset', max_length=255, null=True, blank=True,
+                                         help_text="optional python path to a cmdset class.")
 
     # Database manager
     objects = ObjectManager()
@@ -253,7 +255,7 @@ class ObjectDB(TypedObject):
         "Getter. Allows for value = self.location."
         loc = self.db_location
         if loc:
-            return loc.typeclass(loc)
+            return loc.typeclass
         return None 
     #@location.setter
     def location_set(self, location):
@@ -292,7 +294,7 @@ class ObjectDB(TypedObject):
         "Getter. Allows for value = self.home"
         home = self.db_home 
         if home:
-            return home.typeclass(home)
+            return home.typeclass
         return None 
     #@home.setter
     def home_set(self, home):
@@ -330,7 +332,7 @@ class ObjectDB(TypedObject):
         "Getter. Allows for value = self.destination."
         dest = self.db_destination
         if dest:
-            return dest.typeclass(dest)
+            return dest.typeclass
         return None 
     #@destination.setter
     def destination_set(self, destination):
@@ -554,6 +556,11 @@ class ObjectDB(TypedObject):
         Do something as this object. This command transparently
         lets its typeclass execute the command. 
         raw_string - raw command input coming from the command line. 
+
+        The return from this method is None for all default commands
+        (it's the return value of cmd.func()) and is not used in any
+        way by the engine. It might be useful for admins wanting to
+        implement some sort of 'nested' command structure though,
         """        
         # nick replacement - we require full-word matching.
         
@@ -566,7 +573,7 @@ class ObjectDB(TypedObject):
             if nick.db_nick in raw_list:
                 raw_string = raw_string.replace(nick.db_nick, nick.db_real, 1) 
                 break        
-        cmdhandler.cmdhandler(self.typeclass(self), raw_string)
+        return cmdhandler.cmdhandler(self.typeclass, raw_string)
 
     def msg(self, message, from_obj=None, data=None):
         """

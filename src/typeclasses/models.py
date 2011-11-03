@@ -59,10 +59,118 @@ PARENTS = {
 #------------------------------------------------------------
 
 class PackedDBobject(object):
-    "Simple helper class for storing database object ids."
+    """
+    Attribute helper class.
+    A container for storing and easily identifying database objects in 
+    the database (which doesn't suppport storing db_objects directly).
+    """
     def __init__(self, ID, db_model):        
         self.id = ID
         self.db_model = db_model
+
+class PackedDict(dict):
+    """
+    Attribute helper class.
+    A variant of dict that stores itself to the database when 
+    updating one of its keys. This is called and handled by 
+    Attribute.validate_data(). 
+    """
+    def __init__(self, db_obj, *args, **kwargs):
+        """
+        Sets up the packing dict. The db_store variable
+        is set by Attribute.validate_data() when returned in
+        order to allow custom updates to the dict. 
+
+         db_obj - the Attribute object storing this dict.
+
+        """
+        self.db_obj = db_obj
+        self.db_store = False
+        super(PackedDict, self).__init__(*args, **kwargs)
+    def db_save(self):
+        "save data to Attribute, if db_store is active"        
+        if self.db_store:
+            self.db_obj.value = self
+    def __setitem__(self, *args, **kwargs):                
+        "Custom setitem that stores changed dict to database."        
+        super(PackedDict, self).__setitem__(*args, **kwargs)
+        self.db_save()
+    def __getitem__(self, *args, **kwargs):        
+        return super(PackedDict, self).__getitem__(*args, **kwargs)
+    def clear(self, *args, **kwargs):                
+        "Custom clear"
+        super(PackedDict, self).clear(*args, **kwargs)
+        self.db_save()
+    def pop(self, *args, **kwargs):                
+        "Custom pop"
+        super(PackedDict, self).pop(*args, **kwargs)
+        self.db_save()
+    def popitem(self, *args, **kwargs):                
+        "Custom popitem"
+        super(PackedDict, self).popitem(*args, **kwargs)
+        self.db_save()
+    def update(self, *args, **kwargs):                
+        "Custom update"
+        super(PackedDict, self).update(*args, **kwargs)
+        self.db_save()
+                
+class PackedList(list):
+    """
+    Attribute helper class.
+    A variant of list that stores itself to the database when 
+    updating one of its keys. This is called and handled by 
+    Attribute.validate_data(). 
+    """
+    def __init__(self, db_obj, *args, **kwargs):
+        """
+        Sets up the packing list. The db_store variable
+        is set by Attribute.validate_data() when returned in
+        order to allow custom updates to the list. 
+
+         db_obj - the Attribute object storing this dict.
+
+        """
+        self.db_obj = db_obj
+        self.db_store = False
+        super(PackedList, self).__init__(*args, **kwargs)
+    def db_save(self):
+        "save data to Attribute, if db_store is active"
+        if self.db_store:
+            self.db_obj.value = self
+    def __setitem__(self, *args, **kwargs):                
+        "Custom setitem that stores changed dict to database."
+        super(PackedList, self).__setitem__(*args, **kwargs)
+        self.db_save()
+    def append(self, *args, **kwargs):
+        "Custom append"
+        super(PackedList, self).append(*args, **kwargs)
+        self.db_save()
+    def extend(self, *args, **kwargs):
+        "Custom extend"
+        super(PackedList, self).extend(*args, **kwargs)
+        self.db_save()
+    def insert(self, *args, **kwargs):
+        "Custom insert"
+        super(PackedList, self).insert(*args, **kwargs)
+        self.db_save()
+    def remove(self, *args, **kwargs):
+        "Custom remove"
+        super(PackedList, self).remove(*args, **kwargs)
+        self.db_save()
+    def pop(self, *args, **kwargs):
+        "Custom pop"
+        super(PackedList, self).pop(*args, **kwargs)
+        self.db_save()
+    def reverse(self, *args, **kwargs):
+        "Custom reverse"
+        super(PackedList, self).reverse(*args, **kwargs)
+        self.db_save()
+    def sort(self, *args, **kwargs):
+        "Custom sort"
+        super(PackedList, self).sort(*args, **kwargs)
+        self.db_save()
+
+
 
 class Attribute(SharedMemoryModel):
     """
@@ -92,16 +200,16 @@ class Attribute(SharedMemoryModel):
     # These databse fields are all set using their corresponding properties,
     # named same as the field, but withtout the db_* prefix.
 
-    db_key = models.CharField(max_length=255)
+    db_key = models.CharField('key', max_length=255)
     # access through the value property 
-    db_value = models.TextField(blank=True, null=True)
+    db_value = models.TextField('value', blank=True, null=True)
     # Lock storage 
-    db_lock_storage = models.CharField(max_length=512, blank=True)    
+    db_lock_storage = models.CharField('locks', max_length=512, blank=True)    
     # references the object the attribute is linked to (this is set 
     # by each child class to this abstact class)
     db_obj =  None # models.ForeignKey("RefencedObject")
     # time stamp
-    db_date_created = models.DateTimeField(editable=False, auto_now_add=True)
+    db_date_created = models.DateTimeField('date_created',editable=False, auto_now_add=True)
     
     # Database manager 
     objects = managers.AttributeManager()
@@ -111,12 +219,12 @@ class Attribute(SharedMemoryModel):
         "Initializes the parent first -important!"
         SharedMemoryModel.__init__(self, *args, **kwargs)
         self.locks = LockHandler(self)
+        self.value_cache = None 
 
     class Meta:
         "Define Django meta options"
         abstract = True 
-        verbose_name = "Evennia Attribute"
-        verbose_name_plural = "Evennia Attributes"
+        verbose_name = "Evennia Attribute"    
     
     # Wrapper properties to easily set database fields. These are
     # @property decorators that allows to access these fields using
@@ -179,15 +287,16 @@ class Attribute(SharedMemoryModel):
     def value_get(self):
         """
         Getter. Allows for value = self.value.
-        """        
+        """                
         try:
             return utils.to_unicode(self.validate_data(pickle.loads(utils.to_str(self.db_value))))
         except pickle.UnpicklingError:
             return self.db_value
     #@value.setter
     def value_set(self, new_value):
-        "Setter. Allows for self.value = value"
-        self.db_value = utils.to_unicode(pickle.dumps(utils.to_str(self.validate_data(new_value))))
+        "Setter. Allows for self.value = value"                        
+        self.db_value = utils.to_unicode(pickle.dumps(utils.to_str(self.validate_data(new_value, setmode=True))))
+        #self.db_value = utils.to_unicode(pickle.dumps(utils.to_str(self.validate_data(new_value))))        
         self.save()
     #@value.deleter
     def value_del(self):
@@ -224,20 +333,30 @@ class Attribute(SharedMemoryModel):
     def __unicode__(self):
         return u"%s(%s)" % (self.key, self.id)
 
-    def validate_data(self, item):                
+    def validate_data(self, item, niter=0, setmode=False):
         """
-        We have to make sure to not store database objects raw, since this will
-        crash the system. Instead we must store their IDs and make sure to convert
-        back when the attribute is read back later. 
+        We have to make sure to not store database objects raw, since
+        this will crash the system. Instead we must store their IDs
+        and make sure to convert back when the attribute is read back
+        later.
 
-        We handle only lists and dicts for iterables.
+        Due to this it's criticial that we check all iterables
+        recursively, converting all found database objects to a form
+        the database can handle. We handle lists, tuples and dicts
+        (and any nested combination of them) this way, all other
+        iterables are stored and returned as lists.
+
+        setmode - used for iterables; when first assigning, this settings makes
+           sure that it's a normal built-in python object that is stored in the db,
+           not the custom one. This will then just be updated later, assuring the
+           pickling works as it should. 
+        niter - iteration counter for recursive iterable search. 
         """        
-        #print "in validate_data:", item
         if isinstance(item, basestring):
             # a string is unmodified 
             ret = item        
         elif type(item) == PackedDBobject:
-            # unpack a previously packed object
+            # unpack a previously packed db_object
             try:
                 #print "unpack:", item.id, item.db_model
                 mclass = ContentType.objects.get(model=item.db_model).model_class()
@@ -248,16 +367,36 @@ class Attribute(SharedMemoryModel):
             except Exception:
                 logger.log_trace("Attribute error: %s, %s" % (item.db_model, item.id)) #TODO: Remove when stable?
                 ret = None
-        elif type(item) == dict:
-            # handle dictionaries
-            ret = {}
-            for key, it in item.items():
-                ret[key] = self.validate_data(it)
-        elif is_iter(item):
-            # Note: ALL other iterables are considered to be lists!
+        elif type(item) == tuple:
+            # handle tuples 
             ret = []
             for it in item:
                 ret.append(self.validate_data(it))
+            ret = tuple(ret)
+        elif type(item) == dict or type(item) == PackedDict:            
+            # handle dictionaries            
+            if setmode:
+                ret = {}
+                for key, it in item.items():
+                    ret[key] = self.validate_data(it, niter=niter+1, setmode=True)
+            else:
+                ret = PackedDict(self)
+                for key, it in item.items():
+                    ret[key] = self.validate_data(it, niter=niter+1)
+                if niter == 0:
+                    ret.db_store = True                    
+        elif is_iter(item):
+            # Note: ALL other iterables except dicts and tuples are stored&retrieved as lists!
+            if setmode:
+                ret = []
+                for it in item:
+                    ret.append(self.validate_data(it, niter=niter+1,setmode=True))
+            else:
+                ret = PackedList(self)
+                for it in item:
+                    ret.append(self.validate_data(it, niter=niter+1))
+                if niter == 0:
+                    ret.db_store = True 
         elif has_parent('django.db.models.base.Model', item) or has_parent(PARENTS['typeclass'], item):
             # db models must be stored as dbrefs
             db_model = [parent for parent, path in PARENTS.items() if has_parent(path, item)]
@@ -274,8 +413,7 @@ class Attribute(SharedMemoryModel):
                 # not a valid object - some third-party class or primitive?
                 ret = item
         else:
-            ret = item 
-
+            ret = item             
         return ret
                     
     def access(self, accessing_obj, access_type='read', default=False):
@@ -310,16 +448,16 @@ class TypeNick(SharedMemoryModel):
     channel - used to store own names for channels
 
     """
-    db_nick = models.CharField(max_length=255, db_index=True) # the nick
-    db_real = models.TextField() # the aliased string
-    db_type = models.CharField(default="inputline", max_length=16, null=True, blank=True) # the type of nick
+    db_nick = models.CharField('nickname',max_length=255, db_index=True, help_text='the alias') 
+    db_real = models.TextField('realname', help_text='the original string to match and replace.')
+    db_type = models.CharField('nick type',default="inputline", max_length=16, null=True, blank=True,
+       help_text="the nick type describes when the engine tries to do nick-replacement. Common options are 'inputline','player','obj' and 'channel'. Inputline checks everything being inserted, whereas the other cases tries to replace in various searches or when posting to channels.")
     db_obj = None #models.ForeignKey("ObjectDB")
 
     class Meta:
         "Define Django meta options"
         abstract = True 
         verbose_name = "Nickname"
-        verbose_name_plural = "Nicknames"
         unique_together = ("db_nick", "db_type", "db_obj")
 
 class TypeNickHandler(object):
@@ -404,16 +542,16 @@ class TypedObject(SharedMemoryModel):
     
     # Main identifier of the object, for searching. Can also
     # be referenced as 'name'. 
-    db_key = models.CharField(max_length=255)
+    db_key = models.CharField('key', max_length=255)
     # This is the python path to the type class this object is tied to
     # (the type class is what defines what kind of Object this is)
-    db_typeclass_path = models.CharField(max_length=255, null=True)
+    db_typeclass_path = models.CharField('typeclass', max_length=255, null=True, help_text="this defines what 'type' of entity this is. This variable holds a Python path to a module with a valid Evennia Typeclass.")
     # Creation date
-    db_date_created = models.DateTimeField(editable=False, auto_now_add=True)
+    db_date_created = models.DateTimeField('creation date', editable=False, auto_now_add=True)
     # Permissions (access these through the 'permissions' property)
-    db_permissions = models.CharField(max_length=255, blank=True)
+    db_permissions = models.CharField('permissions', max_length=255, blank=True, help_text="a comma-separated list of text strings checked by certain locks. They are often used for hierarchies, such as letting a Player have permission 'Wizards', 'Builders' etc. Character objects use 'Players' by default. Most other objects don't have any permissions.")
     # Lock storage 
-    db_lock_storage = models.CharField(max_length=512, blank=True)    
+    db_lock_storage = models.CharField('locks', max_length=512, blank=True, help_text="locks limit access to an entity. A lock is defined as a 'lock string' on the form 'type:lockfunctions', defining what functionality is locked and how to determine access. Not defining a lock means no access is granted.")    
 
     # Database manager
     objects = managers.TypedObjectManager()
@@ -434,7 +572,6 @@ class TypedObject(SharedMemoryModel):
         """
         abstract = True 
         verbose_name = "Evennia Database Object"
-        verbose_name_plural = "Evennia Database Objects"
         ordering = ['-db_date_created', 'id', 'db_typeclass_path', 'db_key']
     
     # Wrapper properties to easily set database fields. These are
@@ -490,7 +627,7 @@ class TypedObject(SharedMemoryModel):
         "Setter. Allows for self.typeclass_path = value"
         self.db_typeclass_path = value
         self.save()
-        object.__setattr__(self, "cached_typeclass_path", value)
+        object.__setattr__(self, 'cached_typeclass_path', value)
     #@typeclass_path.deleter
     def typeclass_path_del(self):
         "Deleter. Allows for del self.typeclass_path"
@@ -591,7 +728,7 @@ class TypedObject(SharedMemoryModel):
             # try to look back to this very database object.)
             typeclass = object.__getattribute__(self, 'typeclass')                        
             if typeclass:
-                return object.__getattribute__(typeclass(self), propname)            
+                return object.__getattribute__(typeclass, propname)            
             else:
                 raise AttributeError
 
@@ -626,9 +763,10 @@ class TypedObject(SharedMemoryModel):
         typeclass = object.__getattribute__(self, "cached_typeclass")
         try:
             if typeclass and object.__getattribute__(typeclass, "path") == path:
+                # don't call at_init() when returning from cache
                 return typeclass
         except AttributeError:
-            pass 
+            pass
 
         errstring = ""
         if not path:
@@ -650,7 +788,12 @@ class TypedObject(SharedMemoryModel):
                     object.__setattr__(self, 'db_typeclass_path', tpath)
                     object.__getattribute__(self, 'save')()
                     object.__setattr__(self, "cached_typeclass_path", tpath)
-                    object.__setattr__(self, "cached_typeclass", typeclass) 
+                    typeclass = typeclass(self)
+                    object.__setattr__(self, "cached_typeclass", typeclass)
+                    try:
+                        typeclass.at_init()
+                    except Exception:
+                        logger.log_trace()
                     return typeclass
                 elif hasattr(typeclass, '__file__'):
                     errstring += "\n%s seems to be just the path to a module. You need" % tpath
@@ -755,13 +898,19 @@ class TypedObject(SharedMemoryModel):
         if not callable(typeclass):
             # if this is still giving an error, Evennia is wrongly configured or buggy
             raise Exception("CRITICAL ERROR: The final fallback typeclass %s cannot load!!" % defpath)
+        typeclass = typeclass(self)
         if save:
             object.__setattr__(self, 'db_typeclass_path', defpath)
             object.__getattribute__(self, 'save')()
         if cache:
             object.__setattr__(self, "cached_typeclass_path", defpath)
+
             object.__setattr__(self, "cached_typeclass", typeclass)
-        return typeclass             
+        try:            
+            typeclass.at_init()
+        except Exception:
+            logger.log_trace()
+        return typeclass 
 
     def is_typeclass(self, typeclass, exact=False):
         """
@@ -780,20 +929,21 @@ class TypedObject(SharedMemoryModel):
             typeclass = typeclass.path
         except AttributeError:
             pass 
+        typeclasses = [typeclass] + ["%s.%s" % (path, typeclass) for path in self.typeclass_paths]
         if exact:
             current_path = object.__getattribute__(self, "cached_typeclass_path")            
-            return typeclass and current_path == typeclass
+            return typeclass and any([current_path == typec for typec in typeclasses])
         else:
             # check parent chain
-            return any([cls for cls in self.typeclass.mro()
-                        if "%s.%s" % (cls.__module__, cls.__name__) == typeclass])
+            return any([cls for cls in self.typeclass.__class__.mro()
+                        if any(["%s.%s" % (cls.__module__, cls.__name__) == typec for typec in typeclasses])])
 
     #
     # Object manipulation methods
     #              
     #
 
-    def swap_typeclass(self, new_typeclass, clean_attributes=False):
+    def swap_typeclass(self, new_typeclass, clean_attributes=False, no_default=True):
         """
         This performs an in-situ swap of the typeclass. This means
         that in-game, this object will suddenly be something else.
@@ -817,6 +967,10 @@ class TypedObject(SharedMemoryModel):
                            sure nothing in the new typeclass clashes
                            with the old one. If you supply a list,
                            only those named attributes will be cleared.
+        no_default - if this is active, the swapper will not allow for
+                     swapping to a default typeclass in case the given
+                     one fails for some reason. Instead the old one
+                     will be preserved.                           
         """
         if callable(new_typeclass):
             # this is an actual class object - build the path
@@ -824,12 +978,24 @@ class TypedObject(SharedMemoryModel):
             new_typeclass = "%s.%s" % (cls.__module__, cls.__name__)
 
         # Try to set the new path
-        self.db_typeclass_path = new_typeclass.strip()        
-        self.save()
+        # this will automatically save to database
+
+        old_typeclass_path = self.typeclass_path 
+        self.typeclass_path = new_typeclass.strip()                        
         # this will automatically use a default class if
         # there is an error with the given typeclass.
-        new_typeclass = self.typeclass(self)
-    
+        new_typeclass = self.typeclass
+        if self.typeclass_path == new_typeclass.path:
+            # the typeclass loading worked as expected
+            self.cached_typeclass_path = None
+            self.cached_typeclass = None 
+        elif no_default:
+            # something went wrong; the default was loaded instead,
+            # and we don't allow that; instead we return to previous.
+            self.typeclass_path = old_typeclass_path
+            self.cached_typeclass = None 
+            return False
+                    
         if clean_attributes:
             # Clean out old attributes
             if is_iter(clean_attributes):
@@ -849,6 +1015,7 @@ class TypedObject(SharedMemoryModel):
         # run hooks for this new typeclass
         new_typeclass.basetype_setup()
         new_typeclass.at_object_creation()
+        return True 
             
     #
     # Attribute handler methods 
@@ -856,9 +1023,7 @@ class TypedObject(SharedMemoryModel):
 
     # 
     # Fully persistent attributes. You usually access these 
-    # through the obj.db.attrname method. If FULL_PERSISTENCE
-    # is set, you will access these by just obj.attrname instead.
-    #
+    # through the obj.db.attrname method. 
 
     # Helper methods for persistent attributes 
     
@@ -1010,8 +1175,9 @@ class TypedObject(SharedMemoryModel):
                         attr = obj.get_attribute("all")
                         if attr:
                             return attr
-                        return object.__getattribute__(self, 'all')                    
+                        return object.__getattribute__(self, 'all')                                        
                     return obj.get_attribute(attrname)
+
                 def __setattr__(self, attrname, value):                    
                     obj = object.__getattribute__(self, 'obj')
                     obj.set_attribute(attrname, value)
@@ -1036,9 +1202,8 @@ class TypedObject(SharedMemoryModel):
     db = property(db_get, db_set, db_del)
 
     #
-    # NON-PERSISTENT store. If you run FULL_PERSISTENT but still
-    # want to save something and be sure it's cleared on a server
-    # reboot, you should use this explicitly. Otherwise there is 
+    # NON-PERSISTENT store. If you want to loose data on server reboot 
+    # you should use this explicitly. Otherwise there is 
     # little point in using the non-persistent methods. 
     #
 
@@ -1072,9 +1237,8 @@ class TypedObject(SharedMemoryModel):
         """
         A non-persistent store (ndb: NonDataBase). Everything stored 
         to this is guaranteed to be cleared when a server is shutdown.
-        Works also if FULL_PERSISTENCE is active. Syntax is as for
-        the _get_db_holder() method and property, 
-        e.g. obj.ndb.attr = value etc.
+        Syntax is same as for the _get_db_holder() method and
+        property, e.g. obj.ndb.attr = value etc.
         """
         try:
             return self._ndb_holder

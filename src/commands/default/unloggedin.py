@@ -1,6 +1,7 @@
 """
 Commands that are available from the connect screen.
 """
+import re
 import traceback
 from django.conf import settings 
 from django.contrib.auth.models import User
@@ -121,9 +122,9 @@ class CmdCreate(MuxCommand):
             string = "\n\r Usage (without <>): create \"<playername>\" <email> <password>"
             session.msg(string)
             return
-        if not playername: 
-            # entered an empty string
-            session.msg("\n\r You have to supply a longer playername, surrounded by quotes.")
+        if not re.findall('^[\w. @+-]+$', playername) or not (0 < len(playername) <= 30):
+            session.msg("\n\r Playername can max be 30 characters or fewer. Letters, spaces, dig\
+its and @/./+/-/_ only.") # this echoes the restrictions made by django's auth module. 
             return
         if not email or not password:
             session.msg("\n\r You have to supply an e-mail address followed by a password." ) 
@@ -161,9 +162,12 @@ class CmdCreate(MuxCommand):
 
             new_character = create.create_player(playername, email, password,
                                                  permissions=permissions,
-                                                 location=default_home,
-                                                 typeclass=typeclass,
-                                                 home=default_home)                                
+                                                 character_typeclass=typeclass,
+                                                 character_location=default_home,
+                                                 character_home=default_home)                            
+            if not new_character:
+                session.msg("There was an error creating the default Character/Player. This error was logged. Contact an admin.")
+                return 
             new_player = new_character.player
             
             # character safety features

@@ -52,17 +52,6 @@ SSL_ENABLED = False
 SSL_PORTS = [4001]
 # Interface addresses to listen to. If 0.0.0.0, listen to all.
 SSL_INTERFACES = ['0.0.0.0']
-# Activate full persistence if you want everything in-game to be
-# stored to the database. With it set, you can do typeclass.attr=value
-# and value will be saved to the database under the name 'attr'.
-# This is easy but may be a performance hit for certain game types.
-# Turning it off gives more control over what hits the database since
-# typeclass.attr=value is then non-persistent (does not hit the
-# database and won't survive a server reload) and you need to
-# explicitly do typeclass.db.attr = value if you want to save your
-# value to the database. Your choice, but DON'T change this 
-# value once you have started using the server, it will not end well!
-FULL_PERSISTENCE = True
 # If multisessions are allowed, a user can log into the game
 # from several different computers/clients at the same time.
 # All feedback from the game will be echoed to all sessions. 
@@ -171,6 +160,11 @@ SEARCH_AT_MULTIMATCH_INPUT = "src.commands.cmdparser.at_multimatch_input"
 # This module should contain one or more variables 
 # with strings defining the look of the screen.
 CONNECTION_SCREEN_MODULE = "game.gamesrc.world.connection_screens"
+# An option al module that, if existing, must hold a function
+# named at_initial_setup(). This hook method can be used to customize
+# the server's initial setup sequence (the very first startup of the system).
+# The check will fail quietly if module doesn't exist or fails to load. 
+AT_INITIAL_SETUP_HOOK_MODULE = "game.gamesrc.world.at_initial_setup"
 
 ###################################################
 # Default command sets 
@@ -204,6 +198,8 @@ BASE_CHARACTER_TYPECLASS = "game.gamesrc.objects.baseobjects.Character"
 BASE_ROOM_TYPECLASS = "game.gamesrc.objects.baseobjects.Room"
 # Typeclass for Exit objects (fallback)
 BASE_EXIT_TYPECLASS = "game.gamesrc.objects.baseobjects.Exit"
+# Typeclass for Scripts (fallback)
+BASE_SCRIPT_TYPECLASS = "src.scripts.scripts.DoNothing"
 # The home location for new characters. This must be a unique 
 # dbref (default is Limbo #2). If you want more advanced control over
 # start locations, copy the "create" command from 
@@ -252,6 +248,7 @@ PERMISSION_PLAYER_DEFAULT = "Players"
 # Tuple of modules implementing lock functions. All callable functions
 # inside these modules will be available as lock functions.
 LOCK_FUNC_MODULES = ("src.locks.lockfuncs",)
+
 
 ###################################################
 # In-game Channels created from server start

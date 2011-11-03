@@ -76,18 +76,14 @@ class Object(TypeClass):
         pass
 
     def at_init(self):
+        """        
+        This is always called whenever this object is initiated --
+        that is, whenever it its typeclass is cached from memory. This
+        happens on-demand first time the object is used or activated
+        in some way after being created but also after each server
+        restart or reload. 
         """
-        OBS: CURRENTLY NOT CALLED!
-        
-        This is always called whenever this 
-        object initiated -- both when the object
-        is first created as well as after each restart.
-        It is also called after each server reload, so 
-        if something should survive a warm-reboot (rebooting
-        the server without the players logging out), put it here.
-        """
-        pass 
-    
+        pass     
 
     def basetype_posthook_setup(self):
         """
@@ -433,10 +429,7 @@ class Room(Object):
         """
 
         super(Room, self).basetype_setup()
-        self.locks.add("puppet:false()") # would be weird to puppet a room ...
-        self.locks.add("get:false()")        
-
-        super(Room, self).basetype_setup()
+        self.locks.add("get:false();puppet:false()") # would be weird to puppet a room ...
         self.location = None 
 
 
@@ -472,7 +465,6 @@ class Exit(Object):
         for handling reloads and avoid tracebacks if this is called while
         the typeclass system is rebooting.
         """
-        #print "Exit:create_exit_cmdset "
         class ExitCommand(command.Command):
             """
             This is a command that simply cause the caller
