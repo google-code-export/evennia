@@ -1,0 +1,164 @@
+
+-----------------------------------
+ Evennia README 
+ (http://evennia.com)
+ Beta hg (mercurial) version
+-----------------------------------
+
+
+About Evennia
+-------------
+
+Evennia is a MUD/MUX/MU* server that aims to provide a functional
+bare-bones base for developers. Some of our main features are: 
+
+* Coded and extended using normal Python modules.
+* Extensive web integration due to our use of Django. 
+* Runs its own Twisted webserver. Comes with game website and ajax web-browser mud client. 
+* Extensive current and potential connectivity and protocol-support through Twisted.
+* Extremely easy-to-manipulate SQL database back-end via Django 
+  (djangoproject.com)
+* Powerful an extremely extendable bare-bones base system 
+
+The Django framework has database abstraction abilities that give us
+many features free, such as:
+
+* The codebase will run transparently on MySQL, SQLite, or Postgres
+* At the time of this document's writing, our SQL-backed application here
+  contains 0 lines of SQL. Django's database abstraction layer is absolutely
+  simple yet very powerful.
+* For any model we outline for the server's use, we have the ability to
+  more or less automatically generate a web-based admin interface for it with
+  two lines of code. This lets you Create, Update, or Delete entries, as well
+  limit permissions for those abilities.
+* On the web-based side of things, features such as automatic form validation,
+  abstraction of sessions and cookies, and access to whatever game data you
+  desire are all attractive.  
+
+See the INSTALL file for help on setting up and running Evennia. 
+
+
+Current Status
+--------------
+
+Nov 2011: 
+After creating several different proof-of-concept game systems (in
+contrib and privately) as well testing lots of things to make sure the
+implementation is basically sound, we are declaring Evennia out of
+Alpha. This can mean as much or as little as you want, admittedly -
+development is still heavy but the issue list is at an all-time low
+and the server is slowly stabilizing as people try different things
+with it. So Beta it is!
+
+Aug 2011:
+Split Evennia into two processes: Portal and Server. After a lot of
+work trying to get in-memory code-reloading to work, it's clear this
+is not Python's forte - it's impossible to catch all exceptions,
+especially in asynchronous code like this.  Trying to do so results in
+hackish, flakey and unstable code. With the Portal-Server split, the
+Server can simply be rebooted while players connected to the Portal
+remain connected. The two communicates over twisted's AMP protocol.
+
+May 2011: 
+The new version of Evennia, originally hitting trunk in Aug2010, is
+maturing. All commands from the pre-Aug version, including IRC/IMC2
+support works again. An ajax web-client was added earlier in the year,
+including moving Evennia to be its own webserver (no more need for 
+Apache or django-testserver). Contrib-folder added. 
+
+Aug 2010:
+Evennia-griatch-branch is ready for merging with trunk. This marks a
+rather big change in the inner workings of the server, such as the
+introduction of TypeClasses and Scripts (as compared to the old
+ScriptParents and Events) but should hopefully bring everything
+together into one consistent package as code development continues.
+
+May 2010:
+Evennia is currently being heavily revised and cleaned from 
+the years of gradual piecemeal development. It is thus in a very 
+'Alpha' stage at the moment. This means that old code snippets
+will not be backwards compatabile. Changes touch almost all
+parts of Evennia's innards, from the way Objects are handled 
+to Events, Commands and Permissions. 
+
+April 2010: 
+Griatch takes over Maintainership of the Evennia project from
+the original creator Greg Taylor. 
+
+(Earlier revisions, with previous maintainer, go back to 2005)
+
+
+Contact, Support and Development
+-----------------------
+This is still alpha software, but we try to give support best we can
+if you have questions. Make a post to the mailing list or chat us up
+on IRC. We also have a bug tracker if you want to report
+bugs. Finally, if you are willing to help with the code work, we much
+appreciate all help!  Visit either of the following resources:
+
+* Evennia Webpage
+  http://evennia.com
+  
+* Evennia manual (wiki)
+  http://code.google.com/p/evennia/wiki/Index
+
+* Evennia Code Page (See INSTALL text for installation)
+  http://code.google.com/p/evennia/source/checkout
+
+* Bug tracker 
+  http://code.google.com/p/evennia/issues/list
+
+* IRC channel 
+  visit channel #evennia on the Freenode IRC network
+
+
+Directory structure
+-------------------
+evennia
+ | 
+ |_______src
+ |        |___(engine-related dirs)
+ |        
+ |_______game (start the server)
+ |        |___gamesrc
+ |              |___(game-related dirs)
+ | 
+ |_______contrib 
+ |
+ |_______docs 
+ |
+ |_______locales
+
+The two main directories you will spend most of your time in
+are src/ and game/ (probably mostly game/). 
+
+Basically src/ contains everything related to 
+running the gritty stuff behind the scenes. Unless you are an
+Evennia developer you should normally make sure never to edit 
+things in src/, since this is where we push new revisions that
+may overwrite your changes when you update. You will however 
+need to have a good feeling for the resources supplied by 
+the functions in src, since accessing them correctly is the key 
+to making your dream game come true. 
+
+If src/ is the Evennia developer's domain, the game/ directory 
+on the other hand contains YOUR game. This is where you will 
+define and extend the commands, objects and systems of Evennia
+to make your dream game. game/ contains the main server settings
+and the actual evennia executable to start things. game/gamesrc/
+holds all the templates for creating objects in your virtual world. 
+
+contrib/ contains optional code snippets. These are potentially useful
+but deemed to be too game-specific to be part of the server itself.
+Modules in contrib are not used unless you yourself decide to import
+and use them.
+
+docs/ contain offline versions of the documentation, you can use 
+python-sphinx to convert the raw data to nice-looking output for 
+printing etc. The online wiki is otherwise first to be updated.  
+
+locales/ holds translations of the server strings to other languages
+than English.
+
+With this little first orientation, you should head into the online 
+Evennia wiki documentation to get going with the codebase. 
