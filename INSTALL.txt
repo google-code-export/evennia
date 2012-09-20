@@ -1,0 +1,73 @@
+
+-------------
+Evennia Setup
+-------------
+
+You can find the updated and more detailed version of this page on
+http://code.google.com/p/evennia/wiki/GettingStarted
+
+
+Installation
+------------
+
+* Make sure you have/install the prerequsites with minimum versions
+  listed on http://code.google.com/p/evennia/wiki/GettingStarted:
+
+    - python
+    - django
+    - twisted + PIL
+    - mercurial
+    - django-south (optional, but highly recommended)
+
+* Go to a directory on your harddrive where you want the 'evennia'
+  directory to be created, for example mud/.
+
+    $ cd mud/
+
+* Get a copy of the Evennia source:
+
+    $ hg clone https://code.google.com/p/evennia/ evennia
+
+* Change to the evennia/game directory and run the setup scripts.
+
+    $ cd evennia/game
+
+    $ python manage.py
+
+* Edit the new game/settings.py if needed, then run
+  (make sure to create an admin account when asked):
+
+    $ python manage.py syncdb
+
+* If you use django-south you need to also run
+
+    $ python manage.py migrate
+
+
+Starting Evennia
+----------------
+
+* Start the server with
+
+    $ python evennia.py -i start
+
+  or run without arguments for a menu of launch options.
+  See http://code.google.com/p/evennia/wiki/StartStopReload for more info.
+
+* Start up your MUD client of choice and point it to your server and port 4000.
+  If you are just running locally the server name is 'localhost'.
+
+* Alternatively, you can find the web interface and webclient by
+  pointing your web browser to http://localhost:8000.
+
+* Login with the email address and password you provided when setting up the server.
+
+
+Welcome to Evennia!
+-------------------
+
+* See www.evennia.com for more information and help with how to
+  proceed from here.
+
+* For questions, see the discussion group or the chat. Report bugs or
+  request features via the Issue Tracker.
