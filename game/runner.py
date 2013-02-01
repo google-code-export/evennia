@@ -20,10 +20,15 @@ from optparse import OptionParser
 from subprocess import Popen
 import Queue, thread
 
+try:
+    # check if launched with pypy
+    import __pypy__ as is_pypy
+except ImportError:
+    is_pypy = False
+
 #
 # System Configuration
 #
-
 
 SERVER_PIDFILE = "server.pid"
 PORTAL_PIDFILE = "portal.pid"
@@ -154,14 +159,6 @@ def start_services(server_argv, portal_argv):
             return
         queue.put(("portal_stopped", rc)) # this signals the controller that the program finished
 
-    try:
-        if server_argv:
-            # start server as a reloadable thread
-            SERVER = thread.start_new_thread(server_waiter, (processes, ))
-    except IOError, e:
-        print "Server IOError: %s\nA possible explanation for this is that 'twistd' is not found." % e
-        return
-
     if portal_argv:
         try:
             if get_restart_mode(PORTAL_RESTART) == "True":
@@ -170,12 +167,17 @@ def start_services(server_argv, portal_argv):
             else:
                 # normal operation: start portal as a daemon; we don't care to monitor it for restart
                 PORTAL = Popen(portal_argv)
-                if not SERVER:
-                    # if portal is daemon and no server is running, we have no reason to continue to the loop.
-                    return
         except IOError, e:
             print "Portal IOError: %s\nA possible explanation for this is that 'twistd' is not found." % e
             return
+
+    try:
+        if server_argv:
+            # start server as a reloadable thread
+            SERVER = thread.start_new_thread(server_waiter, (processes, ))
+    except IOError, e:
+        print "Server IOError: %s\nA possible explanation for this is that 'twistd' is not found." % e
+        return
 
     # Reload loop
     while True:

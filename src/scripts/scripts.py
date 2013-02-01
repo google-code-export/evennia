@@ -16,10 +16,12 @@ from src.server.sessionhandler import SESSIONS
 from src.typeclasses.typeclass import TypeClass
 from src.scripts.models import ScriptDB
 from src.comms import channelhandler
-from src.utils import logger
+from src.utils import logger, is_pypy
 from django.utils.translation import ugettext as _
 
-__all__ = ("Script", "DoNothing", "CheckSessions", "ValidateScripts", "ValidateChannelHandler", "ClearAttributeCache")
+__all__ = ["Script", "DoNothing", "CheckSessions", "ValidateScripts", "ValidateChannelHandler"]
+if not is_pypy:
+    __all__.append("ClearAttributeCache")
 
 _ATTRIBUTE_CACHE_MAXSIZE = settings.ATTRIBUTE_CACHE_MAXSIZE # attr-cache size in MB.
 
@@ -456,6 +458,9 @@ class ClearAttributeCache(Script):
         self.persistent = True
     def at_repeat(self):
         "called every 2 hours. Sets a max attr-cache limit to 100 MB." # enough for normal usage?
+        if is_pypy:
+            # pypy don't support get_size, so we have to skip out here.
+            return
         attr_cache_size, _, _ = caches.get_cache_sizes()
         if attr_cache_size > _ATTRIBUTE_CACHE_MAXSIZE:
             caches.flush_attr_cache()
