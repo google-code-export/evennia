@@ -82,7 +82,7 @@ class Msg(SharedMemoryModel):
     # send date
     db_date_sent = models.DateTimeField('date sent', editable=False, auto_now_add=True, db_index=True)
     # lock storage
-    db_lock_storage = models.CharField('locks', max_length=512, blank=True,
+    db_lock_storage = models.TextField('locks', blank=True,
                                        help_text='access locks on this message.')
 
     # these can be used to filter/hide a given message from supplied objects/players/channels
@@ -118,7 +118,7 @@ class Msg(SharedMemoryModel):
     #@sender.setter
     def __senders_set(self, value):
         "Setter. Allows for self.sender = value"
-        for val in make_iter(value):
+        for val in (v for v in make_iter(value) if v):
             obj, typ = identify_object(val)
             if typ == 'player':
                 self.db_sender_players.add(obj)
@@ -163,7 +163,7 @@ class Msg(SharedMemoryModel):
     #@receivers.setter
     def __receivers_set(self, value):
         "Setter. Allows for self.receivers = value. This appends a new receiver to the message."
-        for val in make_iter(value):
+        for val in (v for v in make_iter(value) if v):
             obj, typ = identify_object(val)
             if typ == 'player':
                 self.db_receivers_players.add(obj)
@@ -201,7 +201,7 @@ class Msg(SharedMemoryModel):
     #@channels.setter
     def __channels_set(self, value):
         "Setter. Allows for self.channels = value. Requires a channel to be added."
-        for val in make_iter(value):
+        for val in (v for v in make_iter(value) if v):
             self.db_receivers_channels.add(val)
     #@channels.deleter
     def __channels_del(self):
@@ -416,7 +416,7 @@ class Channel(SharedMemoryModel):
     # Whether this channel should remember its past messages
     db_keep_log = models.BooleanField(default=True)
     # Storage of lock definitions
-    db_lock_storage = models.CharField('locks', max_length=512, blank=True)
+    db_lock_storage = models.TextField('locks', blank=True)
 
 
     # Database manager
