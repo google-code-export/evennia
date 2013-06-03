@@ -42,7 +42,7 @@ def find_channel(caller, channelname, silent=False, noaliases=False):
         return None
     return channels[0]
 
-class CmdAddCom(MuxCommand):
+class CmdAddCom(MuxPlayerCommand):
     """
     addcom - subscribe to a channel with optional alias
 
@@ -111,7 +111,7 @@ class CmdAddCom(MuxCommand):
             self.msg(string)
 
 
-class CmdDelCom(MuxCommand):
+class CmdDelCom(MuxPlayerCommand):
     """
     delcom - unsubscribe from channel or remove channel alias
 
@@ -449,6 +449,7 @@ class CmdCWho(MuxPlayerCommand):
         if not channel.access(self.caller, "listen"):
             string = "You can't access this channel."
             self.msg(string)
+            return
         string = "\n{CChannel subscriptions{n"
         string += "\n{w%s:{n\n" % channel.key
         conns = PlayerChannelConnection.objects.get_all_connections(channel)
