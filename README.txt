@@ -1,10 +1,19 @@
 
+==================================================================
+
+NOTE THAT THIS REPOSITORY (http://code.google.com/p/evennia/)
+IS NO LONGER UPDATED. 
+
+EVENNIA HAS MOVED TO GITHUB (https://github.com/evennia/evennia).
+Please clone from that instead.
+
+==================================================================
+
 -----------------------------------
  Evennia README
  (http://evennia.com)
  Beta hg (mercurial) version
 -----------------------------------
-
 
 About Evennia
 -------------
